@@ -1,0 +1,9 @@
+class Transcript:
+    id: UUID
+    job_id: UUID
+    media_asset_id: UUID
+    language: str
+    model_name: str
+    engine: TranscriptionEngine
+    full_text: str
+    created_at: datetime
