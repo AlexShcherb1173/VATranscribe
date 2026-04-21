@@ -10,4 +10,5 @@ export type MediaFile = {
   path: string;
   checksum_sha256: string | null;
   created_at: string;
+  download_url?: string | null;
 };

@@ -43,3 +43,10 @@ export type JobLog = {
   message: string;
   created_at: string;
 };
+
+export type JobActionResponse = {
+  ok: boolean;
+  job_id: string;
+  status: string;
+  detail: string;
+};

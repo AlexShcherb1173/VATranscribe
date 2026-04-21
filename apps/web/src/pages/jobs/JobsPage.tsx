@@ -1,14 +1,21 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useJobsQuery } from "@/shared/hooks/useJobsQuery";
+import { useJobDetailsQuery } from "@/shared/hooks/useJobDetailsQuery";
+import { useJobLogsQuery } from "@/shared/hooks/useJobLogsQuery";
 import { PageHeader } from "@/shared/ui/PageHeader";
 import { Spinner } from "@/shared/ui/Spinner";
 import { JobFilters } from "@/widgets/job-table/JobFilters";
 import { JobTable } from "@/widgets/job-table/JobTable";
+import { JobDetailsCard } from "@/features/jobs/ui/JobDetailsCard";
+import { JobLogsPanel } from "@/features/jobs/ui/JobLogsPanel";
+import { JobActions } from "@/features/jobs/ui/JobActions";
+import { Card } from "@/shared/ui/Card";
 
 export function JobsPage() {
   const [status, setStatus] = useState("");
   const [type, setType] = useState("");
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
   const { data, isLoading } = useJobsQuery();
 
@@ -22,11 +29,31 @@ export function JobsPage() {
     });
   }, [data, status, type]);
 
+  useEffect(() => {
+    if (!jobs.length) {
+      setSelectedJobId(null);
+      return;
+    }
+
+    if (!selectedJobId) {
+      setSelectedJobId(jobs[0].id);
+      return;
+    }
+
+    const exists = jobs.some((job) => job.id === selectedJobId);
+    if (!exists) {
+      setSelectedJobId(jobs[0].id);
+    }
+  }, [jobs, selectedJobId]);
+
+  const jobDetailsQuery = useJobDetailsQuery(selectedJobId);
+  const jobLogsQuery = useJobLogsQuery(selectedJobId);
+
   return (
     <div>
       <PageHeader
         title="Jobs"
-        description="Track asynchronous media download and transcription tasks with live polling."
+        description="Track asynchronous media download and transcription tasks with live polling, logs and control actions."
       />
 
       <div className="mb-6">
@@ -44,7 +71,49 @@ export function JobsPage() {
           <span>Loading jobs...</span>
         </div>
       ) : (
-        <JobTable jobs={jobs} />
+        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+          <div>
+            <JobTable
+              jobs={jobs}
+              selectedJobId={selectedJobId}
+              onSelectJob={setSelectedJobId}
+            />
+          </div>
+
+          <div className="grid gap-6">
+            {jobDetailsQuery.isLoading ? (
+              <Card className="p-5">
+                <div className="flex items-center gap-3 text-slate-300">
+                  <Spinner />
+                  <span>Loading job details...</span>
+                </div>
+              </Card>
+            ) : jobDetailsQuery.data ? (
+              <>
+                <JobDetailsCard job={jobDetailsQuery.data} />
+                <Card className="p-5">
+                  <div className="mb-4 text-sm font-medium text-white">Actions</div>
+                  <JobActions job={jobDetailsQuery.data} />
+                </Card>
+              </>
+            ) : (
+              <Card className="p-5 text-sm text-slate-400">
+                Select a job to view details.
+              </Card>
+            )}
+
+            {jobLogsQuery.isLoading ? (
+              <Card className="p-5">
+                <div className="flex items-center gap-3 text-slate-300">
+                  <Spinner />
+                  <span>Loading logs...</span>
+                </div>
+              </Card>
+            ) : (
+              <JobLogsPanel logs={jobLogsQuery.data ?? []} />
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

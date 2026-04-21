@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from apps.api.app.config import get_settings
 from apps.api.app.routers import router as api_router
@@ -35,6 +36,7 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix=settings.api_prefix)
+app.mount("/storage", StaticFiles(directory="storage"), name="storage")
 
 
 @app.get("/", response_model=ApiInfoResponse, tags=["meta"])
@@ -53,7 +55,13 @@ def root() -> ApiInfoResponse:
             "jobs_create": f"{settings.api_prefix}/jobs",
             "downloads_analyze": f"{settings.api_prefix}/downloads/analyze",
             "downloads_jobs": f"{settings.api_prefix}/downloads/jobs",
+            "media_assets_list": f"{settings.api_prefix}/media-assets",
+            "media_asset_get": f"{settings.api_prefix}/media-assets/{{media_asset_id}}",
+            "media_asset_download": f"{settings.api_prefix}/media-assets/{{media_asset_id}}/download",
             "transcriptions_jobs": f"{settings.api_prefix}/transcriptions/jobs",
-            "transcript_get": f"{settings.api_prefix}/transcriptions/{{transcript_id}}",
+            "transcripts_list": f"{settings.api_prefix}/transcripts",
+            "transcript_get": f"{settings.api_prefix}/transcripts/{{transcript_id}}",
+            "export_artifact_download": f"{settings.api_prefix}/export-artifacts/{{artifact_id}}/download",
+            "storage_static": "/storage/...",
         },
     )

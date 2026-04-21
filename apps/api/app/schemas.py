@@ -1,8 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
-
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 class HealthLiveResponse(BaseModel):
     status: str
@@ -154,6 +153,18 @@ class MediaAssetResponse(BaseModel):
     path: str
     checksum_sha256: str | None = None
     created_at: datetime
+    download_url: str | None = None
+
+class ExportArtifactResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    transcript_id: str
+    format: str
+    path: str
+    size_bytes: int
+    created_at: datetime
+    download_url: str | None = None
 
 
 class TranscriptSegmentResponse(BaseModel):
@@ -167,17 +178,6 @@ class TranscriptSegmentResponse(BaseModel):
     speaker_label: str | None = None
     confidence: str | None = None
     order_index: int
-
-
-class ExportArtifactResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    transcript_id: str
-    format: str
-    path: str
-    size_bytes: int
-    created_at: datetime
 
 
 class TranscriptResponse(BaseModel):
@@ -202,3 +202,81 @@ class ApiInfoResponse(BaseModel):
     docs_url: str
     api_prefix: str
     endpoints: dict[str, Any]
+
+class AuthRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        if len(value.strip()) != len(value):
+            raise ValueError("Password must not start or end with spaces")
+
+        if " " in value:
+            raise ValueError("Password must not contain spaces")
+
+        has_lower = any(ch.islower() for ch in value)
+        has_upper = any(ch.isupper() for ch in value)
+        has_digit = any(ch.isdigit() for ch in value)
+
+        if not has_lower:
+            raise ValueError("Password must contain at least one lowercase letter")
+
+        if not has_upper:
+            raise ValueError("Password must contain at least one uppercase letter")
+
+        if not has_digit:
+            raise ValueError("Password must contain at least one digit")
+
+        return value
+
+
+class AuthLoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+
+class UserProfileResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    user_id: str
+    full_name: str | None = None
+    company_name: str | None = None
+    timezone: str | None = None
+    locale: str | None = None
+    avatar_url: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class UserProfileUpdateRequest(BaseModel):
+    full_name: str | None = Field(default=None, max_length=255)
+    company_name: str | None = Field(default=None, max_length=255)
+    timezone: str | None = Field(default=None, max_length=64)
+    locale: str | None = Field(default=None, max_length=32)
+    avatar_url: str | None = Field(default=None, max_length=1024)
+
+
+class UserQuotaResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    user_id: str
+
+    storage_bytes_used: int
+    transcription_seconds_used: int
+    jobs_count_used: int
+
+    storage_bytes_limit: int
+    transcription_seconds_limit: int
+    jobs_count_limit: int
+
+    created_at: datetime
+    updated_at: datetime
+

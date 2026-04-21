@@ -1,10 +1,26 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from apps.api.app.celery_client import celery_client
 from apps.api.app.db import get_db
-from apps.api.app.models import Job, JobLog, JobStatus, JobType, MediaAsset, SourceType, Transcript
+from apps.api.app.dependencies import get_current_user
+from apps.api.app.models import (
+    Job,
+    JobLog,
+    JobStatus,
+    JobType,
+    MediaAsset,
+    SourceType,
+    Transcript,
+    User,
+)
 from apps.api.app.schemas import JobResponse, TranscriptResponse, TranscriptionJobCreateRequest
+from apps.api.app.services.quota_service import (
+    assert_can_create_job,
+    assert_can_use_transcription_seconds,
+    estimate_media_duration_seconds,
+)
 
 router = APIRouter(prefix="/transcriptions")
 
@@ -18,15 +34,29 @@ router = APIRouter(prefix="/transcriptions")
 def create_transcription_job(
     payload: TranscriptionJobCreateRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> JobResponse:
-    media_asset = db.get(MediaAsset, payload.media_asset_id)
+    stmt = select(MediaAsset).where(
+        MediaAsset.id == payload.media_asset_id,
+        MediaAsset.user_id == current_user.id,
+    )
+    media_asset = db.scalar(stmt)
+
     if media_asset is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Media asset '{payload.media_asset_id}' not found",
         )
 
+    assert_can_create_job(db, current_user, jobs_to_add=1)
+    assert_can_use_transcription_seconds(
+        db,
+        current_user,
+        seconds_to_add=estimate_media_duration_seconds(media_asset),
+    )
+
     job = Job(
+        user_id=current_user.id,
         type=JobType.TRANSCRIBE.value,
         status=JobStatus.QUEUED.value,
         source_type=SourceType.LOCAL_FILE.value,
@@ -53,8 +83,21 @@ def create_transcription_job(
     response_model=TranscriptResponse,
     summary="Get transcript by id",
 )
-def get_transcript(transcript_id: str, db: Session = Depends(get_db)) -> TranscriptResponse:
-    transcript = db.get(Transcript, transcript_id)
+def get_transcript(
+    transcript_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TranscriptResponse:
+    stmt = (
+        select(Transcript)
+        .join(MediaAsset, Transcript.media_asset_id == MediaAsset.id)
+        .where(
+            Transcript.id == transcript_id,
+            MediaAsset.user_id == current_user.id,
+        )
+    )
+    transcript = db.scalar(stmt)
+
     if transcript is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

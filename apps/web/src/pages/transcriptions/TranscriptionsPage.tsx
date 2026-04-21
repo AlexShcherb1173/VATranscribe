@@ -1,20 +1,88 @@
-import { Card } from "@/shared/ui/Card";
+import { useEffect, useState } from "react";
+
+import { useTranscriptsQuery } from "@/shared/hooks/useTranscriptsQuery";
+import { useTranscriptDetailsQuery } from "@/shared/hooks/useTranscriptDetailsQuery";
 import { PageHeader } from "@/shared/ui/PageHeader";
+import { Spinner } from "@/shared/ui/Spinner";
+import { TranscriptsTable } from "@/features/transcriptions/ui/TranscriptsTable";
+import { TranscriptCard } from "@/features/transcriptions/ui/TranscriptCard";
+import { TranscriptSegmentsTable } from "@/features/transcriptions/ui/TranscriptSegmentsTable";
+import { TranscriptExports } from "@/features/transcriptions/ui/TranscriptExports";
+import { Card } from "@/shared/ui/Card";
 
 export function TranscriptionsPage() {
+  const [selectedTranscriptId, setSelectedTranscriptId] = useState<string | null>(null);
+
+  const { data, isLoading } = useTranscriptsQuery();
+  const transcripts = data ?? [];
+
+  useEffect(() => {
+    if (!transcripts.length) {
+      setSelectedTranscriptId(null);
+      return;
+    }
+
+    if (!selectedTranscriptId) {
+      setSelectedTranscriptId(transcripts[0].id);
+      return;
+    }
+
+    const exists = transcripts.some((item) => item.id === selectedTranscriptId);
+    if (!exists) {
+      setSelectedTranscriptId(transcripts[0].id);
+    }
+  }, [transcripts, selectedTranscriptId]);
+
+  const transcriptDetailsQuery = useTranscriptDetailsQuery(selectedTranscriptId);
+
   return (
     <div>
       <PageHeader
         title="Transcriptions"
-        description="Launch transcription jobs, inspect transcripts and export subtitle/document artifacts."
+        description="Inspect transcript results, read full text, review segments and download exported artifacts."
       />
 
-      <Card className="p-6">
-        <div className="text-lg font-medium text-white">Next step</div>
-        <p className="mt-2 max-w-2xl text-sm text-slate-400">
-          This page will host transcription creation, transcript viewer and export management.
-        </p>
-      </Card>
+      {isLoading ? (
+        <div className="flex items-center gap-3 text-slate-300">
+          <Spinner />
+          <span>Loading transcripts...</span>
+        </div>
+      ) : (
+        <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+          <div>
+            <TranscriptsTable
+              transcripts={transcripts}
+              selectedTranscriptId={selectedTranscriptId}
+              onSelectTranscript={setSelectedTranscriptId}
+            />
+          </div>
+
+          <div className="grid gap-6">
+            {transcriptDetailsQuery.isLoading ? (
+              <Card className="p-5">
+                <div className="flex items-center gap-3 text-slate-300">
+                  <Spinner />
+                  <span>Loading transcript details...</span>
+                </div>
+              </Card>
+            ) : transcriptDetailsQuery.data ? (
+              <>
+                <TranscriptCard transcript={transcriptDetailsQuery.data} />
+                <TranscriptExports
+                  exportsList={transcriptDetailsQuery.data.exports ?? []}
+                />
+                <TranscriptSegmentsTable
+                  segments={transcriptDetailsQuery.data.segments ?? []}
+                />
+              </>
+            ) : (
+              <Card className="p-5 text-sm text-slate-400">
+                Select a transcript to view details.
+              </Card>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

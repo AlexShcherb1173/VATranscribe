@@ -6,9 +6,11 @@ import { formatDateTime } from "@/shared/lib/utils";
 
 type JobTableProps = {
   jobs: Job[];
+  selectedJobId: string | null;
+  onSelectJob: (jobId: string) => void;
 };
 
-export function JobTable({ jobs }: JobTableProps) {
+export function JobTable({ jobs, selectedJobId, onSelectJob }: JobTableProps) {
   if (!jobs.length) {
     return (
       <EmptyState
@@ -33,38 +35,46 @@ export function JobTable({ jobs }: JobTableProps) {
             </tr>
           </thead>
           <tbody>
-            {jobs.map((job) => (
-              <tr
-                key={job.id}
-                className="border-b border-slate-800/80 align-top text-slate-200 last:border-b-0"
-              >
-                <td className="px-4 py-3">
-                  <div className="font-medium text-white">
-                    {job.title || job.id}
-                  </div>
-                  <div className="mt-1 max-w-[420px] truncate text-xs text-slate-400">
-                    {job.input_url || job.transcription_media_asset_id || "—"}
-                  </div>
-                  <div className="mt-1 text-[11px] text-slate-500">{job.id}</div>
-                </td>
-                <td className="px-4 py-3 capitalize">{job.type}</td>
-                <td className="px-4 py-3">
-                  <Badge status={job.status} />
-                </td>
-                <td className="px-4 py-3">
-                  {job.requested_format || "—"}
-                  {job.mp4_mode ? (
-                    <div className="mt-1 text-xs text-slate-400">{job.mp4_mode}</div>
-                  ) : null}
-                </td>
-                <td className="px-4 py-3 text-slate-300">
-                  {formatDateTime(job.created_at)}
-                </td>
-                <td className="px-4 py-3 text-slate-300">
-                  {formatDateTime(job.finished_at)}
-                </td>
-              </tr>
-            ))}
+            {jobs.map((job) => {
+              const isSelected = selectedJobId === job.id;
+
+              return (
+                <tr
+                  key={job.id}
+                  onClick={() => onSelectJob(job.id)}
+                  className={[
+                    "cursor-pointer border-b border-slate-800/80 align-top text-slate-200 last:border-b-0",
+                    isSelected ? "bg-cyan-500/10" : "hover:bg-slate-900/70",
+                  ].join(" ")}
+                >
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-white">
+                      {job.title || job.id}
+                    </div>
+                    <div className="mt-1 max-w-[420px] truncate text-xs text-slate-400">
+                      {job.input_url || job.transcription_media_asset_id || "—"}
+                    </div>
+                    <div className="mt-1 text-[11px] text-slate-500">{job.id}</div>
+                  </td>
+                  <td className="px-4 py-3 capitalize">{job.type}</td>
+                  <td className="px-4 py-3">
+                    <Badge status={job.status} />
+                  </td>
+                  <td className="px-4 py-3">
+                    {job.requested_format || "—"}
+                    {job.mp4_mode ? (
+                      <div className="mt-1 text-xs text-slate-400">{job.mp4_mode}</div>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-3 text-slate-300">
+                    {formatDateTime(job.created_at)}
+                  </td>
+                  <td className="px-4 py-3 text-slate-300">
+                    {formatDateTime(job.finished_at)}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

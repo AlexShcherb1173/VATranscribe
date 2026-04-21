@@ -6,6 +6,6 @@ export function useJobsQuery() {
   return useQuery({
     queryKey: ["jobs"],
     queryFn: () => getJobs(),
-    refetchInterval: 5000,
+    refetchInterval: 3000,
   });
 }

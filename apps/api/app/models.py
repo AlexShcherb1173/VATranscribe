@@ -2,7 +2,17 @@ import uuid
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    func,
+)
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from apps.api.app.db import Base
@@ -38,22 +48,56 @@ class MediaKind(str, Enum):
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    email: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        index=True,
+        nullable=False,
+    )
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
 
-    jobs: Mapped[list["Job"]] = relationship(back_populates="user", foreign_keys="Job.user_id")
-    media_assets: Mapped[list["MediaAsset"]] = relationship(back_populates="user")
+    jobs: Mapped[list["Job"]] = relationship(
+        back_populates="user",
+        foreign_keys="Job.user_id",
+    )
+    media_assets: Mapped[list["MediaAsset"]] = relationship(
+        back_populates="user",
+    )
+    profile: Mapped["UserProfile | None"] = relationship(
+        "UserProfile",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    quota: Mapped["UserQuota | None"] = relationship(
+        "UserQuota",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
 
 class MediaAsset(Base):
     __tablename__ = "media_assets"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
     user_id: Mapped[str | None] = mapped_column(
         String(36),
         ForeignKey("users.id", ondelete="SET NULL"),
@@ -71,22 +115,37 @@ class MediaAsset(Base):
     path: Mapped[str] = mapped_column(Text, nullable=False)
     checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
 
     user: Mapped["User | None"] = relationship(back_populates="media_assets")
     jobs_as_output: Mapped[list["Job"]] = relationship(
         back_populates="output_media_asset",
         foreign_keys="Job.output_media_asset_id",
     )
-    transcripts: Mapped[list["Transcript"]] = relationship(back_populates="media_asset")
+    transcripts: Mapped[list["Transcript"]] = relationship(
+        back_populates="media_asset",
+    )
 
 
 class Job(Base):
     __tablename__ = "jobs"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
     type: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
-    status: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default=JobStatus.PENDING.value)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        index=True,
+        nullable=False,
+        default=JobStatus.PENDING.value,
+    )
     source_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     user_id: Mapped[str | None] = mapped_column(
@@ -108,7 +167,11 @@ class Job(Base):
 
     requested_format: Mapped[str | None] = mapped_column(String(16), nullable=True)
     requested_file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    mp4_mode: Mapped[str | None] = mapped_column(String(32), nullable=True, default="compatible")
+    mp4_mode: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+        default="compatible",
+    )
 
     selected_video_format_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     selected_audio_format_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -127,11 +190,18 @@ class Job(Base):
 
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    user: Mapped["User | None"] = relationship(back_populates="jobs", foreign_keys=[user_id])
+    user: Mapped["User | None"] = relationship(
+        back_populates="jobs",
+        foreign_keys=[user_id],
+    )
     output_media_asset: Mapped["MediaAsset | None"] = relationship(
         back_populates="jobs_as_output",
         foreign_keys=[output_media_asset_id],
@@ -150,7 +220,11 @@ class Job(Base):
 class JobLog(Base):
     __tablename__ = "job_logs"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
     job_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("jobs.id", ondelete="CASCADE"),
@@ -160,7 +234,11 @@ class JobLog(Base):
     level: Mapped[str] = mapped_column(String(16), nullable=False, default="INFO")
     message: Mapped[str] = mapped_column(Text, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
 
     job: Mapped["Job"] = relationship(back_populates="logs")
 
@@ -168,7 +246,11 @@ class JobLog(Base):
 class Transcript(Base):
     __tablename__ = "transcripts"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
     job_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("jobs.id", ondelete="CASCADE"),
@@ -187,7 +269,11 @@ class Transcript(Base):
     engine: Mapped[str] = mapped_column(String(64), nullable=False)
     full_text: Mapped[str] = mapped_column(Text, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
 
     job: Mapped["Job"] = relationship(back_populates="transcripts")
     media_asset: Mapped["MediaAsset"] = relationship(back_populates="transcripts")
@@ -205,7 +291,11 @@ class Transcript(Base):
 class TranscriptSegment(Base):
     __tablename__ = "transcript_segments"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
     transcript_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("transcripts.id", ondelete="CASCADE"),
@@ -225,7 +315,11 @@ class TranscriptSegment(Base):
 class ExportArtifact(Base):
     __tablename__ = "export_artifacts"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
     transcript_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("transcripts.id", ondelete="CASCADE"),
@@ -236,6 +330,106 @@ class ExportArtifact(Base):
     path: Mapped[str] = mapped_column(Text, nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
 
     transcript: Mapped["Transcript"] = relationship(back_populates="export_artifacts")
+
+
+class UserProfile(Base):
+    __tablename__ = "user_profiles"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    company_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    timezone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    locale: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship(
+        "User",
+        back_populates="profile",
+    )
+
+
+class UserQuota(Base):
+    __tablename__ = "user_quotas"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    storage_bytes_used: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    transcription_seconds_used: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    jobs_count_used: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    storage_bytes_limit: Mapped[int] = mapped_column(
+        BigInteger,
+        default=10 * 1024 * 1024 * 1024,
+        nullable=False,
+    )
+
+    transcription_seconds_limit: Mapped[int] = mapped_column(
+        Integer,
+        default=10 * 60 * 60,
+        nullable=False,
+    )
+
+    jobs_count_limit: Mapped[int] = mapped_column(Integer, default=500, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship(
+        "User",
+        back_populates="quota",
+    )

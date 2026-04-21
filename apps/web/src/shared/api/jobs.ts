@@ -1,5 +1,5 @@
 import { apiClient } from "@/shared/api/client";
-import type { Job, JobLog } from "@/entities/job/model/types";
+import type { Job, JobActionResponse, JobLog } from "@/entities/job/model/types";
 
 export type GetJobsParams = {
   status?: string;
@@ -18,5 +18,15 @@ export async function getJob(jobId: string): Promise<Job> {
 
 export async function getJobLogs(jobId: string): Promise<JobLog[]> {
   const response = await apiClient.get<JobLog[]>(`/jobs/${jobId}/logs`);
+  return response.data;
+}
+
+export async function retryJob(jobId: string): Promise<JobActionResponse> {
+  const response = await apiClient.post<JobActionResponse>(`/jobs/${jobId}/retry`);
+  return response.data;
+}
+
+export async function cancelJob(jobId: string): Promise<JobActionResponse> {
+  const response = await apiClient.post<JobActionResponse>(`/jobs/${jobId}/cancel`);
   return response.data;
 }

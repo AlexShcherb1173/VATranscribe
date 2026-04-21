@@ -66,7 +66,7 @@ class Settings(BaseSettings):
         alias="DEFAULT_TRANSCRIPTION_MODEL",
     )
 
-    jwt_secret_key: str = Field(default="change_me", alias="JWT_SECRET_KEY")
+    secret_key: str = Field(default="change_me", alias="JWT_SECRET_KEY")
     jwt_access_expire_minutes: int = Field(
         default=30,
         alias="JWT_ACCESS_EXPIRE_MINUTES",

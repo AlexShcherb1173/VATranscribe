@@ -13,12 +13,25 @@ from apps.api.app.models import (
     MediaAsset,
     Transcript,
     TranscriptSegment,
+    User,
+)
+from apps.api.app.services.quota_service import (
+    increment_jobs_used,
+    increment_storage_used,
+    increment_transcription_seconds_used,
 )
 from apps.worker.app.worker import celery
 from packages.core.vatranscribe_core.audio_tools import extract_audio_for_transcription
 from packages.core.vatranscribe_core.download_engine import download_media
-from packages.core.vatranscribe_core.export_tools import write_json, write_srt, write_txt, write_vtt
-from packages.core.vatranscribe_core.ffmpeg_tools import merge_video_and_audio_to_compatible_mp4
+from packages.core.vatranscribe_core.export_tools import (
+    write_json,
+    write_srt,
+    write_txt,
+    write_vtt,
+)
+from packages.core.vatranscribe_core.ffmpeg_tools import (
+    merge_video_and_audio_to_compatible_mp4,
+)
 from packages.core.vatranscribe_core.media_probe import extract_basic_media_metadata
 from packages.core.vatranscribe_core.storage import build_download_target_path
 from packages.core.vatranscribe_core.transcription_engine import transcribe_media
@@ -78,7 +91,12 @@ def _run_download_job(db: Session, job: Job) -> dict:
 
         add_job_log(db, job.id, "INFO", f"Downloaded video stream: {video_path}")
         add_job_log(db, job.id, "INFO", f"Downloaded audio stream: {audio_path}")
-        add_job_log(db, job.id, "INFO", "Running ffmpeg compatible merge: video copy + audio AAC")
+        add_job_log(
+            db,
+            job.id,
+            "INFO",
+            "Running ffmpeg compatible merge: video copy + audio AAC",
+        )
 
         final_path = merge_video_and_audio_to_compatible_mp4(
             video_path=video_path,
@@ -118,9 +136,13 @@ def _run_download_job(db: Session, job: Job) -> dict:
         add_job_log(db, job.id, "INFO", f"Audio codec: {metadata['audio_codec']}")
 
     job.output_media_asset_id = media_asset.id
+    db.add(job)
+    db.commit()
+
     return {
         "output_media_asset_id": media_asset.id,
         "path": str(final_path),
+        "size_bytes": media_asset.size_bytes or 0,
     }
 
 
@@ -217,7 +239,29 @@ def _run_transcription_job(db: Session, job: Job) -> dict:
     return {
         "transcript_id": transcript.id,
         "path": str(txt_path),
+        "duration_sec_used": int(media_asset.duration_sec or 0),
     }
+
+
+def _apply_quota_updates_after_success(db: Session, job: Job, result: dict) -> None:
+    if not job.user_id:
+        return
+
+    user = db.get(User, job.user_id)
+    if user is None:
+        return
+
+    increment_jobs_used(db, user, 1)
+
+    if job.type == "download":
+        size_bytes = int(result.get("size_bytes") or 0)
+        if size_bytes > 0:
+            increment_storage_used(db, user, size_bytes)
+
+    if job.type == "transcribe":
+        duration_sec_used = int(result.get("duration_sec_used") or 0)
+        if duration_sec_used > 0:
+            increment_transcription_seconds_used(db, user, duration_sec_used)
 
 
 @celery.task(name="vatranscribe.jobs.execute")
@@ -234,6 +278,7 @@ def execute_job_task(job_id: str) -> dict:
 
         job.status = JobStatus.RUNNING.value
         job.started_at = datetime.utcnow()
+        db.add(job)
         db.commit()
 
         add_job_log(db, job.id, "INFO", f"Job execution started (type={job.type})")
@@ -243,19 +288,29 @@ def execute_job_task(job_id: str) -> dict:
         elif job.type == "transcribe":
             result = _run_transcription_job(db, job)
         else:
-            add_job_log(db, job.id, "INFO", "Non-supported job type received, demo success path used")
+            add_job_log(
+                db,
+                job.id,
+                "INFO",
+                "Non-supported job type received, demo success path used",
+            )
             result = {}
 
-        job.status = JobStatus.SUCCEEDED.value
-        job.finished_at = datetime.utcnow()
-        db.commit()
+        _apply_quota_updates_after_success(db, job, result)
 
-        add_job_log(db, job.id, "INFO", "Job execution finished successfully")
+        job = db.get(Job, job_id)
+        if job is not None:
+            job.status = JobStatus.SUCCEEDED.value
+            job.finished_at = datetime.utcnow()
+            db.add(job)
+            db.commit()
+
+            add_job_log(db, job.id, "INFO", "Job execution finished successfully")
 
         return {
             "ok": True,
-            "job_id": job.id,
-            "status": job.status,
+            "job_id": job_id,
+            "status": JobStatus.SUCCEEDED.value,
             **result,
         }
 
@@ -265,6 +320,7 @@ def execute_job_task(job_id: str) -> dict:
             job.status = JobStatus.FAILED.value
             job.error_message = str(exc)
             job.finished_at = datetime.utcnow()
+            db.add(job)
             db.commit()
             add_job_log(db, job.id, "ERROR", f"Job failed: {exc}")
 

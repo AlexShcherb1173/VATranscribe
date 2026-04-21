@@ -2,7 +2,10 @@ import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 import { analyzeDownloadUrl, createDownloadJob } from "@/features/downloads/api/downloads";
-import type { DownloadAnalyzeResponse } from "@/features/downloads/model/types";
+import type {
+  DownloadAnalyzeResponse,
+  DownloadFormatInfo,
+} from "@/features/downloads/models/types";
 import { AnalyzeUrlForm } from "@/features/downloads/ui/AnalyzeUrlForm";
 import { DownloadJobForm } from "@/features/downloads/ui/DownloadJobForm";
 import { FormatsTable } from "@/features/downloads/ui/FormatsTable";
@@ -26,8 +29,12 @@ export function DownloadsPage() {
       setErrorMessage(null);
       setJobResultMessage(null);
 
-      const bestAudio = data.formats.find((item) => item.audio_only || item.video_only);
-      const bestVideo = data.formats.find((item) => !item.audio_only);
+      const bestAudio = data.formats.find(
+        (item: DownloadFormatInfo) => item.audio_only || item.video_only,
+      );
+      const bestVideo = data.formats.find(
+        (item: DownloadFormatInfo) => !item.audio_only,
+      );
 
       setSelectedAudioFormatId(bestAudio?.format_id || "");
       setSelectedVideoFormatId(bestVideo?.format_id || "");
