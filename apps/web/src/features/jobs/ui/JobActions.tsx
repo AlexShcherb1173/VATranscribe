@@ -2,6 +2,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import type { Job } from "@/entities/job/model/types";
 import { cancelJob, retryJob } from "@/shared/api/jobs";
+import { extractErrorMessage } from "@/shared/lib/auth-errors";
+import { toastError, toastSuccess } from "@/shared/ui/toast";
 
 type JobActionsProps = {
   job: Job;
@@ -16,6 +18,12 @@ export function JobActions({ job }: JobActionsProps) {
       await queryClient.invalidateQueries({ queryKey: ["jobs"] });
       await queryClient.invalidateQueries({ queryKey: ["job", job.id] });
       await queryClient.invalidateQueries({ queryKey: ["job-logs", job.id] });
+      await queryClient.invalidateQueries({ queryKey: ["quota", "me"] });
+
+      toastSuccess("Job retried", "The job has been queued again.");
+    },
+    onError: (error: any) => {
+      toastError("Retry failed", extractErrorMessage(error));
     },
   });
 
@@ -25,6 +33,11 @@ export function JobActions({ job }: JobActionsProps) {
       await queryClient.invalidateQueries({ queryKey: ["jobs"] });
       await queryClient.invalidateQueries({ queryKey: ["job", job.id] });
       await queryClient.invalidateQueries({ queryKey: ["job-logs", job.id] });
+
+      toastSuccess("Job canceled", "The job was canceled.");
+    },
+    onError: (error: any) => {
+      toastError("Cancel failed", extractErrorMessage(error));
     },
   });
 

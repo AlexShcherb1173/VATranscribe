@@ -62,6 +62,8 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    subscriptions: Mapped[list["Subscription"]] = relationship("Subscription")
+    usage_snapshots: Mapped[list["UsageSnapshot"]] = relationship("UsageSnapshot")
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -433,3 +435,107 @@ class UserQuota(Base):
         "User",
         back_populates="quota",
     )
+
+class Plan(Base):
+    __tablename__ = "plans"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    code: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    price_monthly: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    currency: Mapped[str] = mapped_column(String(16), nullable=False, default="USD")
+
+    storage_bytes_limit: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    transcription_seconds_limit: Mapped[int] = mapped_column(Integer, nullable=False)
+    jobs_count_limit: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    subscriptions: Mapped[list["Subscription"]] = relationship(back_populates="plan")
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    plan_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("plans.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    current_period_start: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    current_period_end: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship("User")
+    plan: Mapped["Plan"] = relationship(back_populates="subscriptions")
+
+
+class UsageSnapshot(Base):
+    __tablename__ = "usage_snapshots"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    label: Mapped[str] = mapped_column(String(64), nullable=False)
+    storage_bytes_used: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    transcription_seconds_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    jobs_count_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship("User")

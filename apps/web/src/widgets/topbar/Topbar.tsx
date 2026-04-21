@@ -3,15 +3,34 @@ import { useNavigate } from "react-router-dom";
 
 import { destroySession } from "@/shared/auth/session";
 import { useCurrentUserQuery } from "@/shared/hooks/useCurrentUserQuery";
+import { useQuotaQuery } from "@/shared/hooks/useQuotaQuery";
+import { toastInfo } from "@/shared/ui/toast";
+
+function formatBytesCompact(value: number): string {
+  if (!value) return "0 B";
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let size = value;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${size.toFixed(1)} ${units[unitIndex]}`;
+}
 
 export function Topbar() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data } = useCurrentUserQuery();
+  const { data: user } = useCurrentUserQuery();
+  const { data: quota } = useQuotaQuery();
 
   async function handleLogout() {
     destroySession();
     queryClient.clear();
+    toastInfo("Session closed", "You have been signed out.");
     navigate("/auth", { replace: true });
   }
 
@@ -27,9 +46,16 @@ export function Topbar() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {quota ? (
+            <div className="rounded-full border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs text-slate-300">
+              Storage: {formatBytesCompact(quota.storage_bytes_used)} /{" "}
+              {formatBytesCompact(quota.storage_bytes_limit)}
+            </div>
+          ) : null}
+
           <div className="rounded-full border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs text-slate-300">
-            {data?.email || "authenticated"}
+            {user?.email || "authenticated"}
           </div>
 
           <button

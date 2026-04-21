@@ -6,6 +6,8 @@ import type { UploadQueueItem } from "@/features/uploads/model/types";
 import { UploadDropzone } from "@/features/uploads/ui/UploadDropzone";
 import { UploadQueue } from "@/features/uploads/ui/UploadQueue";
 import { UploadResultCard } from "@/features/uploads/ui/UploadResultCard";
+import { extractErrorMessage } from "@/shared/lib/auth-errors";
+import { toastError, toastInfo, toastSuccess } from "@/shared/ui/toast";
 
 function createQueueItem(file: File): UploadQueueItem {
   return {
@@ -26,13 +28,24 @@ export function UploaderPanel() {
   const uploadMutation = useMutation({
     mutationFn: async (files: File[]) => {
       const initialItems = files.map(createQueueItem);
+
       setQueue((prev) => [...initialItems, ...prev]);
+
+      toastInfo(
+        "Upload started",
+        `${files.length} file${files.length > 1 ? "s" : ""} added to queue.`,
+      );
 
       for (const item of initialItems) {
         setQueue((prev) =>
           prev.map((queueItem) =>
             queueItem.id === item.id
-              ? { ...queueItem, status: "uploading", progress: 0, errorMessage: null }
+              ? {
+                  ...queueItem,
+                  status: "uploading",
+                  progress: 0,
+                  errorMessage: null,
+                }
               : queueItem,
           ),
         );
@@ -61,26 +74,33 @@ export function UploaderPanel() {
                 : queueItem,
             ),
           );
+
+          toastSuccess(
+            "Upload completed",
+            `${uploaded.stored_name} is ready for transcription.`,
+          );
         } catch (error: any) {
+          const message = extractErrorMessage(error);
+
           setQueue((prev) =>
             prev.map((queueItem) =>
               queueItem.id === item.id
                 ? {
                     ...queueItem,
                     status: "failed",
-                    errorMessage:
-                      error?.response?.data?.detail ||
-                      error?.message ||
-                      "Upload failed",
+                    errorMessage: message,
                   }
                 : queueItem,
             ),
           );
+
+          toastError("Upload failed", message);
         }
       }
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["media-files"] });
+      await queryClient.invalidateQueries({ queryKey: ["quota", "me"] });
     },
   });
 
@@ -92,7 +112,6 @@ export function UploaderPanel() {
       />
 
       <UploadResultCard items={queue} />
-
       <UploadQueue items={queue} />
     </div>
   );

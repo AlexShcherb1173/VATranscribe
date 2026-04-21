@@ -3,12 +3,15 @@ import { createBrowserRouter } from "react-router-dom";
 import { AppShell } from "@/widgets/app-shell/AppShell";
 import { ProtectedRoute } from "@/widgets/protected-route/ProtectedRoute";
 import { AuthPage } from "@/pages/auth/AuthPage";
+import { BillingPage } from "@/pages/billing/BillingPage";
 import { DashboardPage } from "@/pages/dashboard/DashboardPage";
 import { DownloadsPage } from "@/pages/downloads/DownloadsPage";
 import { FilesPage } from "@/pages/files/FilesPage";
 import { JobsPage } from "@/pages/jobs/JobsPage";
+import { ProfilePage } from "@/pages/profile/ProfilePage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { TranscriptionsPage } from "@/pages/transcriptions/TranscriptionsPage";
+import { UpgradePage } from "@/pages/upgrade/UpgradePage";
 
 export const router = createBrowserRouter([
   {
@@ -27,6 +30,9 @@ export const router = createBrowserRouter([
           { path: "files", element: <FilesPage /> },
           { path: "jobs", element: <JobsPage /> },
           { path: "transcriptions", element: <TranscriptionsPage /> },
+          { path: "profile", element: <ProfilePage /> },
+          { path: "billing", element: <BillingPage /> },
+          { path: "upgrade", element: <UpgradePage /> },
           { path: "settings", element: <SettingsPage /> },
         ],
       },

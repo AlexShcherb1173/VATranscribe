@@ -1,15 +1,18 @@
 import { useMemo } from "react";
 
 import { useJobsQuery } from "@/shared/hooks/useJobsQuery";
+import { useQuotaQuery } from "@/shared/hooks/useQuotaQuery";
 import { Card } from "@/shared/ui/Card";
 import { PageHeader } from "@/shared/ui/PageHeader";
 import { Spinner } from "@/shared/ui/Spinner";
 import { JobsStatsGrid } from "@/features/jobs/ui/JobsStatsGrid";
 import { Badge } from "@/shared/ui/Badge";
 import { formatDateTime } from "@/shared/lib/utils";
+import { QuotaGrid } from "@/features/quota/ui/QuotaGrid";
 
 export function DashboardPage() {
   const { data, isLoading } = useJobsQuery();
+  const { data: quota, isLoading: quotaLoading } = useQuotaQuery();
 
   const jobs = data ?? [];
   const recentJobs = useMemo(() => jobs.slice(0, 5), [jobs]);
@@ -18,16 +21,18 @@ export function DashboardPage() {
     <div>
       <PageHeader
         title="Dashboard"
-        description="Operational overview of downloads, transcription execution and job health."
+        description="Operational overview of downloads, transcription execution, user limits and job health."
       />
 
-      {isLoading ? (
+      {(isLoading || quotaLoading) ? (
         <div className="flex items-center gap-3 text-slate-300">
           <Spinner />
           <span>Loading dashboard data...</span>
         </div>
       ) : (
         <div className="grid gap-6">
+          {quota ? <QuotaGrid quota={quota} /> : null}
+
           <JobsStatsGrid jobs={jobs} />
 
           <Card className="p-5">
@@ -44,7 +49,9 @@ export function DashboardPage() {
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <div className="font-medium text-white">{job.title || job.id}</div>
+                      <div className="font-medium text-white">
+                        {job.title || job.id}
+                      </div>
                       <div className="mt-1 text-xs text-slate-500">{job.id}</div>
                     </div>
                     <Badge status={job.status} />
@@ -52,17 +59,23 @@ export function DashboardPage() {
 
                   <div className="mt-3 grid gap-3 md:grid-cols-3">
                     <div>
-                      <div className="text-xs uppercase tracking-wide text-slate-500">Type</div>
+                      <div className="text-xs uppercase tracking-wide text-slate-500">
+                        Type
+                      </div>
                       <div className="mt-1 text-sm text-slate-200">{job.type}</div>
                     </div>
                     <div>
-                      <div className="text-xs uppercase tracking-wide text-slate-500">Created</div>
+                      <div className="text-xs uppercase tracking-wide text-slate-500">
+                        Created
+                      </div>
                       <div className="mt-1 text-sm text-slate-200">
                         {formatDateTime(job.created_at)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs uppercase tracking-wide text-slate-500">Output</div>
+                      <div className="text-xs uppercase tracking-wide text-slate-500">
+                        Output
+                      </div>
                       <div className="mt-1 break-all text-sm text-slate-200">
                         {job.output_media_asset_id || "—"}
                       </div>

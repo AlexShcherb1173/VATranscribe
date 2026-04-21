@@ -280,3 +280,45 @@ class UserQuotaResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+class BillingPlanResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    code: str
+    name: str
+    price_monthly: int
+    currency: str
+    storage_bytes_limit: int
+    transcription_seconds_limit: int
+    jobs_count_limit: int
+    is_active: bool
+
+
+class BillingSubscriptionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    user_id: str
+    plan_id: str
+    status: str
+    started_at: datetime
+    current_period_start: datetime
+    current_period_end: datetime
+    cancel_at_period_end: bool
+
+
+class UsageHistoryPointResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    label: str
+    storage_bytes_used: int
+    transcription_seconds_used: int
+    jobs_count_used: int
+
+
+class BillingOverviewResponse(BaseModel):
+    current_plan: BillingPlanResponse
+    available_plans: list[BillingPlanResponse]
+    subscription: BillingSubscriptionResponse
+    usage_history: list[UsageHistoryPointResponse]
+
