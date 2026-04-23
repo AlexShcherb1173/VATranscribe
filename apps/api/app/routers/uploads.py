@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
-from apps.api.app.db import get_db
+from apps.api.app.database import get_db
 from apps.api.app.dependencies import get_current_user
 from apps.api.app.models import MediaAsset, User
 from apps.api.app.schemas import MediaAssetResponse
@@ -75,7 +77,6 @@ async def upload_media_file(
             detail=str(exc),
         ) from exc
 
-    # optimistic pre-check based on client-provided size if available
     if file.size is not None:
         assert_can_store_bytes(db, current_user, int(file.size))
 
@@ -85,8 +86,12 @@ async def upload_media_file(
 
     size_bytes, checksum = await save_upload_file(file, target_path)
 
-    # authoritative check on actual saved bytes
-    assert_can_store_bytes(db, current_user, size_bytes)
+    try:
+        assert_can_store_bytes(db, current_user, size_bytes)
+    except HTTPException:
+        if target_path.exists():
+            target_path.unlink(missing_ok=True)
+        raise
 
     mime_type = guess_mime_type(target_path)
 

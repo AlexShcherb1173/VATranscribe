@@ -15,7 +15,8 @@ COPY packages ./packages
 COPY alembic.ini ./
 COPY alembic ./alembic
 
-RUN pip install --no-cache-dir -e .[dev]
+RUN python -m pip install --upgrade pip setuptools wheel
+RUN pip install --no-cache-dir --default-timeout=300 --retries 10 -e .
 RUN pip install --no-cache-dir faster-whisper ctranslate2 onnxruntime
 
 COPY . .

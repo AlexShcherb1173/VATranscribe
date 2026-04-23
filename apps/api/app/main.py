@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -50,18 +52,34 @@ def root() -> ApiInfoResponse:
         endpoints={
             "health_live": f"{settings.api_prefix}/health/live",
             "health_ready": f"{settings.api_prefix}/health/ready",
+            "auth_register": f"{settings.api_prefix}/auth/register",
+            "auth_login": f"{settings.api_prefix}/auth/login",
+            "auth_me": f"{settings.api_prefix}/auth/me",
+            "profile": f"{settings.api_prefix}/profile",
+            "quota": f"{settings.api_prefix}/quota/me",
+            "billing_overview": f"{settings.api_prefix}/billing/overview",
+            "billing_upgrade": f"{settings.api_prefix}/billing/upgrade",
             "jobs_list": f"{settings.api_prefix}/jobs",
             "jobs_get": f"{settings.api_prefix}/jobs/{{job_id}}",
             "jobs_create": f"{settings.api_prefix}/jobs",
+            "jobs_logs": f"{settings.api_prefix}/jobs/{{job_id}}/logs",
+            "jobs_enqueue": f"{settings.api_prefix}/jobs/{{job_id}}/enqueue",
+            "jobs_retry": f"{settings.api_prefix}/jobs/{{job_id}}/retry",
+            "jobs_cancel": f"{settings.api_prefix}/jobs/{{job_id}}/cancel",
             "downloads_analyze": f"{settings.api_prefix}/downloads/analyze",
             "downloads_jobs": f"{settings.api_prefix}/downloads/jobs",
+            "uploads": f"{settings.api_prefix}/uploads",
             "media_assets_list": f"{settings.api_prefix}/media-assets",
             "media_asset_get": f"{settings.api_prefix}/media-assets/{{media_asset_id}}",
             "media_asset_download": f"{settings.api_prefix}/media-assets/{{media_asset_id}}/download",
+            "media_asset_delete": f"{settings.api_prefix}/media-assets/{{media_asset_id}}",
             "transcriptions_jobs": f"{settings.api_prefix}/transcriptions/jobs",
             "transcripts_list": f"{settings.api_prefix}/transcripts",
             "transcript_get": f"{settings.api_prefix}/transcripts/{{transcript_id}}",
+            "transcript_delete": f"{settings.api_prefix}/transcripts/{{transcript_id}}",
+            "export_artifact_get": f"{settings.api_prefix}/export-artifacts/{{artifact_id}}",
             "export_artifact_download": f"{settings.api_prefix}/export-artifacts/{{artifact_id}}/download",
+            "export_artifact_delete": f"{settings.api_prefix}/export-artifacts/{{artifact_id}}",
             "storage_static": "/storage/...",
         },
     )

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from apps.api.app.models import MediaAsset, User, UserQuota
+from apps.api.app.models import MediaAsset, UsageSnapshot, User, UserQuota
 from apps.api.app.services.account_bootstrap import ensure_user_quota
 
 
@@ -27,8 +30,48 @@ class QuotaSnapshot:
     jobs_count_limit: int
 
 
+def _today_label() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
 def get_or_create_quota(db: Session, user: User) -> UserQuota:
     return ensure_user_quota(db, user)
+
+
+def record_usage_snapshot(
+    db: Session,
+    user: User,
+    quota: UserQuota,
+    label: str | None = None,
+) -> UsageSnapshot:
+    snapshot_label = label or _today_label()
+
+    snapshot = db.scalar(
+        select(UsageSnapshot).where(
+            UsageSnapshot.user_id == str(user.id),
+            UsageSnapshot.label == snapshot_label,
+        )
+    )
+
+    if snapshot is None:
+        snapshot = UsageSnapshot(
+            id=str(uuid.uuid4()),
+            user_id=str(user.id),
+            label=snapshot_label,
+            storage_bytes_used=quota.storage_bytes_used,
+            transcription_seconds_used=quota.transcription_seconds_used,
+            jobs_count_used=quota.jobs_count_used,
+        )
+        db.add(snapshot)
+    else:
+        snapshot.storage_bytes_used = quota.storage_bytes_used
+        snapshot.transcription_seconds_used = quota.transcription_seconds_used
+        snapshot.jobs_count_used = quota.jobs_count_used
+        db.add(snapshot)
+
+    db.commit()
+    db.refresh(snapshot)
+    return snapshot
 
 
 def get_quota_snapshot(db: Session, user: User) -> QuotaSnapshot:
@@ -74,6 +117,7 @@ def increment_jobs_used(db: Session, user: User, amount: int = 1) -> UserQuota:
     db.add(quota)
     db.commit()
     db.refresh(quota)
+    record_usage_snapshot(db, user, quota)
     return quota
 
 
@@ -83,6 +127,7 @@ def increment_storage_used(db: Session, user: User, amount: int) -> UserQuota:
     db.add(quota)
     db.commit()
     db.refresh(quota)
+    record_usage_snapshot(db, user, quota)
     return quota
 
 
@@ -92,6 +137,7 @@ def decrement_storage_used(db: Session, user: User, amount: int) -> UserQuota:
     db.add(quota)
     db.commit()
     db.refresh(quota)
+    record_usage_snapshot(db, user, quota)
     return quota
 
 
@@ -105,20 +151,26 @@ def increment_transcription_seconds_used(
     db.add(quota)
     db.commit()
     db.refresh(quota)
+    record_usage_snapshot(db, user, quota)
     return quota
 
 
 def sync_storage_usage_from_media_assets(db: Session, user: User) -> UserQuota:
     quota = get_or_create_quota(db, user)
 
+    assets = db.scalars(
+        select(MediaAsset).where(MediaAsset.user_id == str(user.id))
+    ).all()
+
     total_bytes = 0
-    for asset in user.media_assets:
+    for asset in assets:
         total_bytes += asset.size_bytes or 0
 
     quota.storage_bytes_used = total_bytes
     db.add(quota)
     db.commit()
     db.refresh(quota)
+    record_usage_snapshot(db, user, quota)
     return quota
 
 

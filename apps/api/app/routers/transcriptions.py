@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from apps.api.app.celery_client import celery_client
-from apps.api.app.db import get_db
+from apps.api.app.database import get_db
 from apps.api.app.dependencies import get_current_user
 from apps.api.app.models import (
     Job,
@@ -20,6 +22,7 @@ from apps.api.app.services.quota_service import (
     assert_can_create_job,
     assert_can_use_transcription_seconds,
     estimate_media_duration_seconds,
+    increment_jobs_used,
 )
 
 router = APIRouter(prefix="/transcriptions")
@@ -68,6 +71,8 @@ def create_transcription_job(
     db.add(job)
     db.commit()
     db.refresh(job)
+
+    increment_jobs_used(db, current_user, 1)
 
     db.add(JobLog(job_id=job.id, level="INFO", message="Transcription job created"))
     db.add(JobLog(job_id=job.id, level="INFO", message="Transcription job enqueued"))

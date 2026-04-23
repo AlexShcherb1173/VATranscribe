@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from apps.api.app.db import get_db
+from apps.api.app.celery_client import celery_client
+from apps.api.app.database import get_db
 from apps.api.app.dependencies import get_current_user
 from apps.api.app.models import Job, JobLog, JobStatus, User
 from apps.api.app.schemas import (
@@ -11,6 +14,7 @@ from apps.api.app.schemas import (
     JobLogResponse,
     JobResponse,
 )
+from apps.api.app.services.quota_service import assert_can_create_job, increment_jobs_used
 
 router = APIRouter(prefix="/jobs")
 
@@ -68,6 +72,8 @@ def create_job(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> JobResponse:
+    assert_can_create_job(db, current_user, jobs_to_add=1)
+
     job = Job(
         user_id=current_user.id,
         type=payload.type,
@@ -90,6 +96,8 @@ def create_job(
     db.commit()
     db.refresh(job)
 
+    increment_jobs_used(db, current_user, 1)
+
     db.add(JobLog(job_id=job.id, level="INFO", message="Job created"))
     db.commit()
 
@@ -107,6 +115,7 @@ def get_job_logs(
     current_user: User = Depends(get_current_user),
 ) -> list[JobLogResponse]:
     _get_job_or_404(job_id, db, current_user)
+
     stmt = (
         select(JobLog)
         .where(JobLog.job_id == job_id)
@@ -142,9 +151,13 @@ def enqueue_job(
 
     job.status = JobStatus.QUEUED.value
     job.error_message = None
+    db.add(job)
     db.commit()
+    db.refresh(job)
 
     _add_log(db, job.id, "INFO", "Job enqueued")
+
+    celery_client.send_task("vatranscribe.jobs.execute", args=[job.id])
 
     return JobActionResponse(
         ok=True,
@@ -180,9 +193,13 @@ def retry_job(
     job.error_message = None
     job.started_at = None
     job.finished_at = None
+    db.add(job)
     db.commit()
+    db.refresh(job)
 
     _add_log(db, job.id, "INFO", "Job retried and enqueued")
+
+    celery_client.send_task("vatranscribe.jobs.execute", args=[job.id])
 
     return JobActionResponse(
         ok=True,
@@ -211,7 +228,9 @@ def cancel_job(
         )
 
     job.status = JobStatus.CANCELED.value
+    db.add(job)
     db.commit()
+    db.refresh(job)
 
     _add_log(db, job.id, "WARNING", "Job canceled")
 

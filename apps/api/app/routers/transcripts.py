@@ -1,8 +1,12 @@
+from __future__ import annotations
+
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from apps.api.app.db import get_db
+from apps.api.app.database import get_db
 from apps.api.app.dependencies import get_current_user
 from apps.api.app.models import MediaAsset, Transcript, User
 from apps.api.app.schemas import (
@@ -124,3 +128,29 @@ def get_transcript(
 ) -> TranscriptResponse:
     item = _get_transcript_or_404(transcript_id, db, current_user)
     return _build_transcript_response(item)
+
+
+@router.delete(
+    "/{transcript_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Delete transcript and its export files",
+)
+def delete_transcript(
+    transcript_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    item = _get_transcript_or_404(transcript_id, db, current_user)
+
+    for artifact in item.export_artifacts:
+        artifact_path = Path(artifact.path)
+        if artifact_path.exists() and artifact_path.is_file():
+            artifact_path.unlink(missing_ok=True)
+
+    db.delete(item)
+    db.commit()
+
+    return {
+        "status": "ok",
+        "message": f"Transcript '{transcript_id}' deleted",
+    }

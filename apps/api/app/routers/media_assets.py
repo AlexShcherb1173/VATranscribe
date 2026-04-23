@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -5,10 +7,11 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from apps.api.app.db import get_db
+from apps.api.app.database import get_db
 from apps.api.app.dependencies import get_current_user
 from apps.api.app.models import MediaAsset, User
 from apps.api.app.schemas import MediaAssetResponse
+from apps.api.app.services.quota_service import sync_storage_usage_from_media_assets
 
 router = APIRouter(prefix="/media-assets")
 
@@ -103,3 +106,31 @@ def download_media_asset(
         media_type=item.mime_type or "application/octet-stream",
         filename=item.stored_name,
     )
+
+
+@router.delete(
+    "/{media_asset_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Delete media asset",
+)
+def delete_media_asset(
+    media_asset_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    item = _get_media_asset_or_404(media_asset_id, db, current_user)
+
+    file_path = Path(item.path)
+    if file_path.exists() and file_path.is_file():
+        file_path.unlink(missing_ok=True)
+
+    db.delete(item)
+    db.commit()
+
+    db.refresh(current_user)
+    sync_storage_usage_from_media_assets(db, current_user)
+
+    return {
+        "status": "ok",
+        "message": f"Media asset '{media_asset_id}' deleted",
+    }

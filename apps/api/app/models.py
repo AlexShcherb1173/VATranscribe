@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -15,7 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from apps.api.app.db import Base
+from apps.api.app.database import Base
 
 
 class JobType(str, Enum):
@@ -49,21 +51,80 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    profile: Mapped["UserProfile | None"] = relationship(
+        "UserProfile",
+        back_populates="user",
+        uselist=False,
+    )
+    quota: Mapped["UserQuota | None"] = relationship(
+        "UserQuota",
+        back_populates="user",
+        uselist=False,
+    )
+
+    subscriptions: Mapped[list["Subscription"]] = relationship(
+        "Subscription",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="Subscription.created_at.desc()",
+    )
+    usage_snapshots: Mapped[list["UsageSnapshot"]] = relationship(
+        "UsageSnapshot",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="UsageSnapshot.created_at.asc()",
+    )
+
+    media_assets: Mapped[list["MediaAsset"]] = relationship(
+        "MediaAsset",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        foreign_keys="MediaAsset.user_id",
+    )
+    jobs: Mapped[list["Job"]] = relationship(
+        "Job",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        foreign_keys="Job.user_id",
+    )
+
+
+class Plan(Base):
+    __tablename__ = "plans"
+
+    id: Mapped[str] = mapped_column(
         String(36),
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
     )
-    email: Mapped[str] = mapped_column(
-        String(255),
-        unique=True,
-        index=True,
-        nullable=False,
-    )
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    subscriptions: Mapped[list["Subscription"]] = relationship("Subscription")
-    usage_snapshots: Mapped[list["UsageSnapshot"]] = relationship("UsageSnapshot")
+    code: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    price_monthly: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    currency: Mapped[str] = mapped_column(String(16), nullable=False, default="USD")
+    storage_bytes_limit: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    transcription_seconds_limit: Mapped[int] = mapped_column(Integer, nullable=False)
+    jobs_count_limit: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -71,24 +132,56 @@ class User(Base):
         nullable=False,
     )
 
-    jobs: Mapped[list["Job"]] = relationship(
-        back_populates="user",
-        foreign_keys="Job.user_id",
+    subscriptions: Mapped[list["Subscription"]] = relationship(
+        "Subscription",
+        back_populates="plan",
     )
-    media_assets: Mapped[list["MediaAsset"]] = relationship(
-        back_populates="user",
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
     )
-    profile: Mapped["UserProfile | None"] = relationship(
-        "UserProfile",
-        back_populates="user",
-        uselist=False,
-        cascade="all, delete-orphan",
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
-    quota: Mapped["UserQuota | None"] = relationship(
-        "UserQuota",
-        back_populates="user",
-        uselist=False,
-        cascade="all, delete-orphan",
+    plan_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("plans.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    current_period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    current_period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship(
+        "User",
+        back_populates="subscriptions",
+    )
+    plan: Mapped["Plan"] = relationship(
+        "Plan",
+        back_populates="subscriptions",
     )
 
 
@@ -123,12 +216,17 @@ class MediaAsset(Base):
         nullable=False,
     )
 
-    user: Mapped["User | None"] = relationship(back_populates="media_assets")
+    user: Mapped["User | None"] = relationship(
+        "User",
+        back_populates="media_assets",
+    )
     jobs_as_output: Mapped[list["Job"]] = relationship(
+        "Job",
         back_populates="output_media_asset",
         foreign_keys="Job.output_media_asset_id",
     )
     transcripts: Mapped[list["Transcript"]] = relationship(
+        "Transcript",
         back_populates="media_asset",
     )
 
@@ -201,22 +299,30 @@ class Job(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped["User | None"] = relationship(
+        "User",
         back_populates="jobs",
         foreign_keys=[user_id],
     )
     output_media_asset: Mapped["MediaAsset | None"] = relationship(
+        "MediaAsset",
         back_populates="jobs_as_output",
         foreign_keys=[output_media_asset_id],
     )
     transcription_media_asset: Mapped["MediaAsset | None"] = relationship(
+        "MediaAsset",
         foreign_keys=[transcription_media_asset_id],
     )
     logs: Mapped[list["JobLog"]] = relationship(
+        "JobLog",
         back_populates="job",
         cascade="all, delete-orphan",
         order_by="JobLog.created_at",
     )
-    transcripts: Mapped[list["Transcript"]] = relationship(back_populates="job")
+    transcripts: Mapped[list["Transcript"]] = relationship(
+        "Transcript",
+        back_populates="job",
+        cascade="all, delete-orphan",
+    )
 
 
 class JobLog(Base):
@@ -242,7 +348,7 @@ class JobLog(Base):
         nullable=False,
     )
 
-    job: Mapped["Job"] = relationship(back_populates="logs")
+    job: Mapped["Job"] = relationship("Job", back_populates="logs")
 
 
 class Transcript(Base):
@@ -277,14 +383,16 @@ class Transcript(Base):
         nullable=False,
     )
 
-    job: Mapped["Job"] = relationship(back_populates="transcripts")
-    media_asset: Mapped["MediaAsset"] = relationship(back_populates="transcripts")
+    job: Mapped["Job"] = relationship("Job", back_populates="transcripts")
+    media_asset: Mapped["MediaAsset"] = relationship("MediaAsset", back_populates="transcripts")
     segments: Mapped[list["TranscriptSegment"]] = relationship(
+        "TranscriptSegment",
         back_populates="transcript",
         cascade="all, delete-orphan",
         order_by="TranscriptSegment.order_index",
     )
     export_artifacts: Mapped[list["ExportArtifact"]] = relationship(
+        "ExportArtifact",
         back_populates="transcript",
         cascade="all, delete-orphan",
     )
@@ -311,7 +419,7 @@ class TranscriptSegment(Base):
     confidence: Mapped[str | None] = mapped_column(String(32), nullable=True)
     order_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    transcript: Mapped["Transcript"] = relationship(back_populates="segments")
+    transcript: Mapped["Transcript"] = relationship("Transcript", back_populates="segments")
 
 
 class ExportArtifact(Base):
@@ -338,38 +446,33 @@ class ExportArtifact(Base):
         nullable=False,
     )
 
-    transcript: Mapped["Transcript"] = relationship(back_populates="export_artifacts")
+    transcript: Mapped["Transcript"] = relationship("Transcript", back_populates="export_artifacts")
 
 
 class UserProfile(Base):
     __tablename__ = "user_profiles"
 
     id: Mapped[str] = mapped_column(
-        String(36),
+        UUID(as_uuid=False),
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
     )
-
     user_id: Mapped[str] = mapped_column(
-        String(36),
+        UUID(as_uuid=False),
         ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
         unique=True,
+        nullable=False,
         index=True,
     )
 
     full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    company_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    timezone: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    locale: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    avatar_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
-
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -377,53 +480,38 @@ class UserProfile(Base):
         nullable=False,
     )
 
-    user: Mapped["User"] = relationship(
-        "User",
-        back_populates="profile",
-    )
+    user: Mapped["User"] = relationship("User", back_populates="profile")
 
 
 class UserQuota(Base):
     __tablename__ = "user_quotas"
 
     id: Mapped[str] = mapped_column(
-        String(36),
+        UUID(as_uuid=False),
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
     )
-
     user_id: Mapped[str] = mapped_column(
-        String(36),
+        UUID(as_uuid=False),
         ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
         unique=True,
+        nullable=False,
         index=True,
     )
 
-    storage_bytes_used: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
-    transcription_seconds_used: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    jobs_count_used: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    storage_bytes_used: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    transcription_seconds_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    jobs_count_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    storage_bytes_limit: Mapped[int] = mapped_column(
-        BigInteger,
-        default=10 * 1024 * 1024 * 1024,
-        nullable=False,
-    )
-
-    transcription_seconds_limit: Mapped[int] = mapped_column(
-        Integer,
-        default=10 * 60 * 60,
-        nullable=False,
-    )
-
-    jobs_count_limit: Mapped[int] = mapped_column(Integer, default=500, nullable=False)
+    storage_bytes_limit: Mapped[int] = mapped_column(BigInteger, nullable=False, default=10 * 1024 * 1024 * 1024)
+    transcription_seconds_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=36_000)
+    jobs_count_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=500)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
-
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -431,85 +519,7 @@ class UserQuota(Base):
         nullable=False,
     )
 
-    user: Mapped["User"] = relationship(
-        "User",
-        back_populates="quota",
-    )
-
-class Plan(Base):
-    __tablename__ = "plans"
-
-    id: Mapped[str] = mapped_column(
-        String(36),
-        primary_key=True,
-        default=lambda: str(uuid.uuid4()),
-    )
-    code: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
-    name: Mapped[str] = mapped_column(String(128), nullable=False)
-    price_monthly: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    currency: Mapped[str] = mapped_column(String(16), nullable=False, default="USD")
-
-    storage_bytes_limit: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    transcription_seconds_limit: Mapped[int] = mapped_column(Integer, nullable=False)
-    jobs_count_limit: Mapped[int] = mapped_column(Integer, nullable=False)
-
-    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
-
-    subscriptions: Mapped[list["Subscription"]] = relationship(back_populates="plan")
-
-
-class Subscription(Base):
-    __tablename__ = "subscriptions"
-
-    id: Mapped[str] = mapped_column(
-        String(36),
-        primary_key=True,
-        default=lambda: str(uuid.uuid4()),
-    )
-    user_id: Mapped[str] = mapped_column(
-        String(36),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    plan_id: Mapped[str] = mapped_column(
-        String(36),
-        ForeignKey("plans.id", ondelete="RESTRICT"),
-        nullable=False,
-        index=True,
-    )
-
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
-
-    started_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
-    current_period_start: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-    )
-    current_period_end: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-    )
-    cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
-
-    user: Mapped["User"] = relationship("User")
-    plan: Mapped["Plan"] = relationship(back_populates="subscriptions")
+    user: Mapped["User"] = relationship("User", back_populates="quota")
 
 
 class UsageSnapshot(Base):
@@ -526,8 +536,8 @@ class UsageSnapshot(Base):
         nullable=False,
         index=True,
     )
-
     label: Mapped[str] = mapped_column(String(64), nullable=False)
+
     storage_bytes_used: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     transcription_seconds_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     jobs_count_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -538,4 +548,4 @@ class UsageSnapshot(Base):
         nullable=False,
     )
 
-    user: Mapped["User"] = relationship("User")
+    user: Mapped["User"] = relationship("User", back_populates="usage_snapshots")

@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy.orm import Session
 
 from apps.api.app.config import get_settings
-from apps.api.app.db import SessionLocal
+from apps.api.app.database import SessionLocal
 from apps.api.app.models import (
     ExportArtifact,
     Job,
@@ -16,7 +18,6 @@ from apps.api.app.models import (
     User,
 )
 from apps.api.app.services.quota_service import (
-    increment_jobs_used,
     increment_storage_used,
     increment_transcription_seconds_used,
 )
@@ -250,8 +251,6 @@ def _apply_quota_updates_after_success(db: Session, job: Job, result: dict) -> N
     user = db.get(User, job.user_id)
     if user is None:
         return
-
-    increment_jobs_used(db, user, 1)
 
     if job.type == "download":
         size_bytes = int(result.get("size_bytes") or 0)

@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from apps.api.app.db import get_db
+from apps.api.app.database import get_db
 from apps.api.app.models import User
 from apps.api.app.security import get_subject_from_token
 

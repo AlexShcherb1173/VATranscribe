@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -5,7 +7,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from apps.api.app.db import get_db
+from apps.api.app.database import get_db
 from apps.api.app.dependencies import get_current_user
 from apps.api.app.models import ExportArtifact, MediaAsset, Transcript, User
 from apps.api.app.schemas import ExportArtifactResponse
@@ -89,3 +91,28 @@ def download_export_artifact(
         media_type=media_type_map.get(item.format, "application/octet-stream"),
         filename=file_path.name,
     )
+
+
+@router.delete(
+    "/{artifact_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Delete export artifact",
+)
+def delete_export_artifact(
+    artifact_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    item = _get_export_artifact_or_404(artifact_id, db, current_user)
+
+    file_path = Path(item.path)
+    if file_path.exists() and file_path.is_file():
+        file_path.unlink(missing_ok=True)
+
+    db.delete(item)
+    db.commit()
+
+    return {
+        "status": "ok",
+        "message": f"Export artifact '{artifact_id}' deleted",
+    }
