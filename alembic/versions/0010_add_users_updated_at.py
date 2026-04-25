@@ -1,5 +1,11 @@
+"""add users.updated_at.
+
+Revision ID: 0010
+Revises: 0009
+"""
+
 from alembic import op
-import sqlalchemy as sa
+
 
 revision = "0010"
 down_revision = "0009"
@@ -8,16 +14,13 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "users",
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
+    op.execute(
+        """
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()
+        """
     )
 
 
 def downgrade() -> None:
-    op.drop_column("users", "updated_at")
+    op.execute("ALTER TABLE users DROP COLUMN IF EXISTS updated_at")
