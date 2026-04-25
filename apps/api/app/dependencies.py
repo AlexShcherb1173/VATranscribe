@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -19,10 +21,8 @@ def get_current_user(
             detail="Authentication required",
         )
 
-    token = credentials.credentials
-
     try:
-        subject = get_subject_from_token(token)
+        subject = get_subject_from_token(credentials.credentials)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
