@@ -1,10 +1,9 @@
 import axios from "axios";
 
-import { env } from "@/shared/config/env";
 import { clearAccessToken, getAccessToken } from "@/shared/auth/token";
 
 export const apiClient = axios.create({
-  baseURL: env.apiBaseUrl,
+  baseURL: "http://127.0.0.1:8000/api/v1",
   timeout: 30000,
   headers: {
     "Content-Type": "application/json",

@@ -5,10 +5,10 @@ import { Topbar } from "@/widgets/topbar/Topbar";
 
 export function AppShell() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="mx-auto grid min-h-screen max-w-[1600px] grid-cols-1 lg:grid-cols-[280px_1fr]">
+    <div className="min-h-screen bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white">
+      <div className="mx-auto grid min-h-screen max-w-[1800px] grid-cols-1 lg:grid-cols-[288px_1fr]">
         <Sidebar />
-        <div className="flex min-h-screen flex-col">
+        <div className="flex min-h-screen min-w-0 flex-col">
           <Topbar />
           <main className="flex-1 p-4 md:p-6 xl:p-8">
             <Outlet />

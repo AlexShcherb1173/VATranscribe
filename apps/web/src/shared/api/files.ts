@@ -5,3 +5,7 @@ export async function getMediaFiles(): Promise<MediaFile[]> {
   const response = await apiClient.get<MediaFile[]>("/media-assets");
   return response.data;
 }
+
+export async function deleteMediaFile(mediaAssetId: string): Promise<void> {
+  await apiClient.delete(`/media-assets/${mediaAssetId}`);
+}

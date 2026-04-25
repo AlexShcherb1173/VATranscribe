@@ -1,48 +1,65 @@
 import { NavLink } from "react-router-dom";
 
+import { useI18n } from "@/shared/i18n";
+
 const navItems = [
-  { to: "/", label: "Dashboard" },
-  { to: "/downloads", label: "Downloads" },
-  { to: "/files", label: "Files" },
-  { to: "/jobs", label: "Jobs" },
-  { to: "/transcriptions", label: "Transcriptions" },
-  { to: "/profile", label: "Profile" },
-  { to: "/billing", label: "Billing" },
-  { to: "/upgrade", label: "Upgrade" },
-  { to: "/settings", label: "Settings" },
-];
+  { to: "/app", key: "dashboard", icon: "⌘" },
+  { to: "/app/downloads", key: "downloads", icon: "↧" },
+  { to: "/app/files", key: "files", icon: "□" },
+  { to: "/app/jobs", key: "jobs", icon: "●" },
+  { to: "/app/transcriptions", key: "transcripts", icon: "¶" },
+  { to: "/app/billing", key: "billing", icon: "$" },
+  { to: "/app/profile", key: "profile", icon: "◐" },
+  { to: "/app/settings", key: "settings", icon: "⚙" },
+] as const;
 
 export function Sidebar() {
+  const { t } = useI18n();
+
   return (
-    <aside className="border-r border-slate-800 bg-slate-950/90 p-4 lg:p-6">
-      <div className="mb-8">
-        <div className="text-xs font-medium uppercase tracking-[0.22em] text-cyan-400">
-          VATranscribe
+    <aside className="sticky top-0 hidden h-screen border-r border-slate-200/80 bg-white/70 p-5 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/80 lg:block">
+      <div className="mb-8 flex items-center gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-sm font-black text-white shadow-lg dark:bg-cyan-300 dark:text-slate-950">
+          VA
         </div>
-        <div className="mt-2 text-xl font-semibold text-white">
-          Control Panel
+        <div>
+          <div className="font-semibold tracking-tight text-slate-950 dark:text-white">VATranscribe</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">Creator OS</div>
         </div>
       </div>
 
-      <nav className="space-y-2">
+      <nav className="space-y-1.5">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
-            end={item.to === "/"}
+            end={item.to === "/app"}
             className={({ isActive }) =>
               [
-                "block rounded-xl px-3 py-2.5 text-sm transition-colors",
+                "flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition",
                 isActive
-                  ? "bg-cyan-500/15 text-cyan-300"
-                  : "text-slate-300 hover:bg-slate-900 hover:text-white",
+                  ? "bg-slate-950 text-white shadow-lg shadow-slate-950/10 dark:bg-white dark:text-slate-950"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white",
               ].join(" ")
             }
           >
-            {item.label}
+            <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 text-xs dark:bg-white/10">
+              {item.icon}
+            </span>
+            <span>{t.nav[item.key]}</span>
           </NavLink>
         ))}
       </nav>
+
+      <div className="absolute bottom-5 left-5 right-5 rounded-[1.4rem] border border-cyan-200 bg-cyan-50 p-4 dark:border-cyan-300/20 dark:bg-cyan-300/10">
+        <div className="text-sm font-semibold text-slate-950 dark:text-white">Content Pack</div>
+        <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-cyan-100/80">
+          Transcript, subtitles, summary and repurposed posts in one flow.
+        </p>
+        <NavLink to="/app/billing" className="mt-3 inline-flex text-xs font-semibold text-cyan-700 dark:text-cyan-200">
+          {t.common.upgradeToPro} →
+        </NavLink>
+      </div>
     </aside>
   );
 }

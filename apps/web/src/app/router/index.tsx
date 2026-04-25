@@ -8,21 +8,21 @@ import { DashboardPage } from "@/pages/dashboard/DashboardPage";
 import { DownloadsPage } from "@/pages/downloads/DownloadsPage";
 import { FilesPage } from "@/pages/files/FilesPage";
 import { JobsPage } from "@/pages/jobs/JobsPage";
+import { LandingPage } from "@/pages/landing/LandingPage";
 import { ProfilePage } from "@/pages/profile/ProfilePage";
+import { ResultPage } from "@/pages/result/ResultPage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { TranscriptionsPage } from "@/pages/transcriptions/TranscriptionsPage";
 import { UpgradePage } from "@/pages/upgrade/UpgradePage";
 
 export const router = createBrowserRouter([
-  {
-    path: "/auth",
-    element: <AuthPage />,
-  },
+  { path: "/", element: <LandingPage /> },
+  { path: "/auth", element: <AuthPage /> },
   {
     element: <ProtectedRoute />,
     children: [
       {
-        path: "/",
+        path: "/app",
         element: <AppShell />,
         children: [
           { index: true, element: <DashboardPage /> },
@@ -30,6 +30,7 @@ export const router = createBrowserRouter([
           { path: "files", element: <FilesPage /> },
           { path: "jobs", element: <JobsPage /> },
           { path: "transcriptions", element: <TranscriptionsPage /> },
+          { path: "results/:transcriptId", element: <ResultPage /> },
           { path: "profile", element: <ProfilePage /> },
           { path: "billing", element: <BillingPage /> },
           { path: "upgrade", element: <UpgradePage /> },

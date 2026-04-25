@@ -75,7 +75,7 @@ export function RegisterForm() {
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-500"
+          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-cyan-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
           placeholder="alex@example.com"
           autoComplete="email"
         />
@@ -87,7 +87,7 @@ export function RegisterForm() {
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-500"
+          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-cyan-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
           placeholder="Strong123!"
           autoComplete="new-password"
         />
@@ -111,7 +111,7 @@ export function RegisterForm() {
       <button
         type="submit"
         disabled={mutation.isPending}
-        className="w-full rounded-xl border border-cyan-700 bg-slate-950 px-4 py-2.5 text-sm font-medium text-cyan-300 transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+        className="secondary-button w-full disabled:cursor-not-allowed disabled:opacity-60"
       >
         {mutation.isPending ? "Creating account..." : "Register"}
       </button>

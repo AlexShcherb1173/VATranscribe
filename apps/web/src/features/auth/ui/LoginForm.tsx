@@ -38,7 +38,7 @@ export function LoginForm() {
 
       const storedRedirect = consumeRedirectAfterLogin();
       const redirectTo =
-        storedRedirect || fromPath || "/";
+        storedRedirect || fromPath || "/app";
 
       navigate(redirectTo, { replace: true });
     },
@@ -78,7 +78,7 @@ export function LoginForm() {
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-500"
+          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-cyan-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
           placeholder="alex@example.com"
           autoComplete="email"
         />
@@ -90,7 +90,7 @@ export function LoginForm() {
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-500"
+          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-cyan-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
           placeholder="Strong123!"
           autoComplete="current-password"
         />
@@ -105,7 +105,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={mutation.isPending}
-        className="w-full rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+        className="premium-button w-full disabled:cursor-not-allowed disabled:opacity-60"
       >
         {mutation.isPending ? "Signing in..." : "Sign in"}
       </button>

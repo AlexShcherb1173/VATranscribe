@@ -3,14 +3,11 @@ import type { Transcript } from "@/entities/transcript/model/types";
 
 export type CreateTranscriptionJobPayload = {
   media_asset_id: string;
-  model_name: string;
+  model_name: string | null;
   language: string | null;
-  export_formats: string[];
 };
 
-export async function createTranscriptionJob(
-  payload: CreateTranscriptionJobPayload,
-) {
+export async function createTranscriptionJob(payload: CreateTranscriptionJobPayload) {
   const response = await apiClient.post("/transcriptions/jobs", payload);
   return response.data;
 }
@@ -21,6 +18,6 @@ export async function getTranscripts(): Promise<Transcript[]> {
 }
 
 export async function getTranscript(transcriptId: string): Promise<Transcript> {
-  const response = await apiClient.get<Transcript>(`/transcriptions/${transcriptId}`);
+  const response = await apiClient.get<Transcript>(`/transcripts/${transcriptId}`);
   return response.data;
 }

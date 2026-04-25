@@ -1,6 +1,8 @@
+import type { UserQuota } from "@/entities/quota/model/types";
+
 export type BillingPlan = {
   id: string;
-  code: string;
+  code: "free" | "pro" | "business" | string;
   name: string;
   price_monthly: number;
   currency: string;
@@ -32,5 +34,12 @@ export type BillingOverview = {
   current_plan: BillingPlan;
   available_plans: BillingPlan[];
   subscription: BillingSubscription;
+  quota: UserQuota;
   usage_history: UsageHistoryPoint[];
+};
+
+export type BillingUpgradeResponse = {
+  current_plan: BillingPlan;
+  subscription: BillingSubscription;
+  quota: UserQuota;
 };
