@@ -24,7 +24,7 @@ export function Sidebar() {
         </div>
         <div>
           <div className="font-semibold tracking-tight text-slate-950 dark:text-white">VATranscribe</div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">Creator OS</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">{t.common.creatorOs}</div>
         </div>
       </div>
 
@@ -51,15 +51,6 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="absolute bottom-5 left-5 right-5 rounded-[1.4rem] border border-cyan-200 bg-cyan-50 p-4 dark:border-cyan-300/20 dark:bg-cyan-300/10">
-        <div className="text-sm font-semibold text-slate-950 dark:text-white">Content Pack</div>
-        <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-cyan-100/80">
-          Transcript, subtitles, summary and repurposed posts in one flow.
-        </p>
-        <NavLink to="/app/billing" className="mt-3 inline-flex text-xs font-semibold text-cyan-700 dark:text-cyan-200">
-          {t.common.upgradeToPro} →
-        </NavLink>
-      </div>
     </aside>
   );
 }

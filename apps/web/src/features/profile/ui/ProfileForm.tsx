@@ -2,12 +2,14 @@ import { FormEvent, useEffect, useState } from "react";
 
 import type { UserProfile } from "@/entities/profile/model/types";
 import { useUpdateProfileMutation } from "@/shared/hooks/useUpdateProfileMutation";
+import { useI18n } from "@/shared/i18n";
 
 type ProfileFormProps = {
   profile: UserProfile;
 };
 
 export function ProfileForm({ profile }: ProfileFormProps) {
+  const { t } = useI18n();
   const mutation = useUpdateProfileMutation();
 
   const [fullName, setFullName] = useState(profile.full_name || "");
@@ -39,77 +41,85 @@ export function ProfileForm({ profile }: ProfileFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5"
+      className="premium-card border-slate-600/60 p-5"
     >
       <div className="mb-4">
-        <div className="text-lg font-semibold text-white">Profile settings</div>
+        <div className="text-lg font-semibold text-white">
+          {t.profile.profileSettings}
+        </div>
+
         <div className="mt-1 text-sm text-slate-400">
-          Update account metadata used by the operator interface.
+          {t.profile.profileSettingsDescription}
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label className="mb-1.5 block text-sm text-slate-300">
-            Full name
+            {t.profile.fullName}
           </label>
+
           <input
             type="text"
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-500"
+            className="w-full rounded-xl border border-slate-600 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-500"
             placeholder="Alex Developer"
           />
         </div>
 
         <div>
           <label className="mb-1.5 block text-sm text-slate-300">
-            Company
+            {t.profile.company}
           </label>
+
           <input
             type="text"
             value={companyName}
             onChange={(event) => setCompanyName(event.target.value)}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-500"
+            className="w-full rounded-xl border border-slate-600 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-500"
             placeholder="VAT Studio"
           />
         </div>
 
         <div>
           <label className="mb-1.5 block text-sm text-slate-300">
-            Timezone
+            {t.profile.timezone}
           </label>
+
           <input
             type="text"
             value={timezone}
             onChange={(event) => setTimezone(event.target.value)}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-500"
+            className="w-full rounded-xl border border-slate-600 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-500"
             placeholder="Europe/Istanbul"
           />
         </div>
 
         <div>
           <label className="mb-1.5 block text-sm text-slate-300">
-            Locale
+            {t.profile.locale}
           </label>
+
           <input
             type="text"
             value={locale}
             onChange={(event) => setLocale(event.target.value)}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-500"
+            className="w-full rounded-xl border border-slate-600 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-500"
             placeholder="ru"
           />
         </div>
 
         <div className="md:col-span-2">
           <label className="mb-1.5 block text-sm text-slate-300">
-            Avatar URL
+            {t.profile.avatarUrl}
           </label>
+
           <input
             type="url"
             value={avatarUrl}
             onChange={(event) => setAvatarUrl(event.target.value)}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-500"
+            className="w-full rounded-xl border border-slate-600 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-500"
             placeholder="https://..."
           />
         </div>
@@ -119,13 +129,13 @@ export function ProfileForm({ profile }: ProfileFormProps) {
         <button
           type="submit"
           disabled={mutation.isPending}
-          className="rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+          className="premium-button disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {mutation.isPending ? "Saving..." : "Save changes"}
+          {mutation.isPending ? t.common.processing : t.profile.saveChanges}
         </button>
 
         <div className="text-xs text-slate-500">
-          Updated: {new Date(profile.updated_at).toLocaleString()}
+          {t.profile.updated}: {new Date(profile.updated_at).toLocaleString()}
         </div>
       </div>
     </form>

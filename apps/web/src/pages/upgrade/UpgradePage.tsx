@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { PricingModal } from "@/shared/ui/PricingModal";
 import { useI18n } from "@/shared/i18n";
 
 export function UpgradePage() {
@@ -23,13 +22,13 @@ export function UpgradePage() {
           {t.common.upgradeToPro}
         </button>
       </div>
-      <PricingModal
-        open={open}
-        onClose={() => {
-          setOpen(false);
-          navigate("/app/billing");
-        }}
-      />
+      {/*<PricingModal*/}
+      {/*  open={open}*/}
+      {/*  onClose={() => {*/}
+      {/*    setOpen(false);*/}
+      {/*    navigate("/app/billing");*/}
+      {/*  }}*/}
+      {/*/>*/}
     </div>
   );
 }

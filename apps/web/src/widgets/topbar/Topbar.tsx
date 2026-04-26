@@ -7,7 +7,6 @@ import { useBillingOverviewQuery } from "@/shared/hooks/useBillingOverviewQuery"
 import { useCurrentUserQuery } from "@/shared/hooks/useCurrentUserQuery";
 import { useI18n } from "@/shared/i18n";
 import { formatHoursFromSeconds, percentage } from "@/shared/lib/format";
-import { PricingModal } from "@/shared/ui/PricingModal";
 import { toastInfo } from "@/shared/ui/toast";
 
 function LanguageToggle() {
@@ -49,7 +48,7 @@ export function Topbar() {
   async function handleLogout() {
     destroySession();
     queryClient.clear();
-    toastInfo("Session closed", "You have been signed out.");
+    toastInfo(t.common.sessionClosed, t.common.signedOut);
     navigate("/auth", { replace: true });
   }
 
@@ -61,7 +60,7 @@ export function Topbar() {
             {t.dashboard.magicFlow}
           </div>
           <div className="mt-1 hidden text-xs text-slate-500 dark:text-slate-400 sm:block">
-            {user?.email || "authenticated workspace"}
+            {user?.email || t.common.authenticatedWorkspace}
           </div>
         </div>
 
@@ -85,7 +84,9 @@ export function Topbar() {
           <LanguageToggle />
 
           <button type="button" onClick={() => setPricingOpen(true)} className="premium-button hidden sm:inline-flex">
-            {t.common.upgradeToPro}
+            <Link to="/app/billing" className="premium-button">
+                 {t.common.goToSubscriptions}
+            </Link>
           </button>
 
           <Link to="/app" className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 lg:hidden">
@@ -98,7 +99,7 @@ export function Topbar() {
         </div>
       </div>
 
-      <PricingModal open={pricingOpen} onClose={() => setPricingOpen(false)} />
+
     </header>
   );
 }

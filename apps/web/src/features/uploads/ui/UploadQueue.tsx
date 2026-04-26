@@ -1,4 +1,5 @@
 import type { UploadQueueItem } from "@/features/uploads/model/types";
+import { useI18n } from "@/shared/i18n";
 import { Card } from "@/shared/ui/Card";
 import { EmptyState } from "@/shared/ui/EmptyState";
 
@@ -20,18 +21,22 @@ function statusColor(status: UploadQueueItem["status"]): string {
 }
 
 export function UploadQueue({ items }: UploadQueueProps) {
+  const { t } = useI18n();
+
   if (!items.length) {
     return (
       <EmptyState
-        title="Upload queue is empty"
-        description="Selected files will appear here with progress and upload status."
+        title={t.uploads.queueEmptyTitle}
+        description={t.uploads.queueEmptyDescription}
       />
     );
   }
 
   return (
     <Card className="p-5">
-      <div className="mb-4 text-lg font-medium text-white">Upload queue</div>
+      <div className="mb-4 text-lg font-medium text-white">
+        {t.uploads.queueTitle}
+      </div>
 
       <div className="space-y-4">
         {items.map((item) => (

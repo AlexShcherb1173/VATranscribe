@@ -1,5 +1,7 @@
 import { useRef, useState, type DragEvent } from "react";
 
+import { useI18n } from "@/shared/i18n";
+
 type UploadDropzoneProps = {
   isBusy?: boolean;
   onFilesSelected: (files: File[]) => void;
@@ -11,6 +13,7 @@ export function UploadDropzone({
 }: UploadDropzoneProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const { t } = useI18n();
 
   function openFileDialog() {
     inputRef.current?.click();
@@ -63,10 +66,11 @@ export function UploadDropzone({
 
       <div className="mx-auto max-w-2xl">
         <div className="text-lg font-medium text-white">
-          Drag & drop local media files
+          {t.uploads.dropTitle}
         </div>
+
         <p className="mt-2 text-sm text-slate-400">
-          Supported: MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, MKV, WEBM, AVI
+          {t.uploads.supported}
         </p>
 
         <div className="mt-5">
@@ -76,7 +80,7 @@ export function UploadDropzone({
             disabled={isBusy}
             className="rounded-xl bg-cyan-500 px-5 py-3 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isBusy ? "Uploading..." : "Choose files"}
+            {isBusy ? t.uploads.uploading : t.uploads.chooseFiles}
           </button>
         </div>
       </div>
