@@ -1,22 +1,30 @@
+from __future__ import annotations
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from apps.api.app.celery_client import celery_client
-from apps.api.app.db import get_db
-from apps.api.app.models import Job, JobLog, JobStatus
+from apps.api.app.database import get_db
+from apps.api.app.dependencies import get_current_user
+from apps.api.app.models import Job, JobLog, JobStatus, User
 from apps.api.app.schemas import (
     JobActionResponse,
     JobCreateRequest,
     JobLogResponse,
     JobResponse,
 )
+from apps.api.app.services.quota_service import assert_can_create_job, increment_jobs_used
 
-router = APIRouter(prefix="/jobs")
+router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
 
-def _get_job_or_404(job_id: str, db: Session) -> Job:
-    job = db.get(Job, job_id)
+def _get_job_or_404(job_id: str, db: Session, current_user: User) -> Job:
+    stmt = select(Job).where(
+        Job.id == job_id,
+        Job.user_id == current_user.id,
+    )
+    job = db.scalar(stmt)
     if job is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -31,25 +39,43 @@ def _add_log(db: Session, job_id: str, level: str, message: str) -> None:
 
 
 @router.get("", response_model=list[JobResponse], summary="List jobs")
-def list_jobs(db: Session = Depends(get_db)) -> list[JobResponse]:
-    stmt = select(Job).order_by(Job.created_at.desc())
+def list_jobs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[JobResponse]:
+    stmt = (
+        select(Job)
+        .where(Job.user_id == current_user.id)
+        .order_by(Job.created_at.desc())
+    )
     jobs = db.scalars(stmt).all()
     return list(jobs)
 
 
 @router.get("/{job_id}", response_model=JobResponse, summary="Get job by id")
-def get_job(job_id: str, db: Session = Depends(get_db)) -> JobResponse:
-    return _get_job_or_404(job_id, db)
+def get_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Job:
+    return _get_job_or_404(job_id, db, current_user)
 
 
 @router.post(
     "",
     response_model=JobResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create job",
+    summary="Create generic job",
 )
-def create_job(payload: JobCreateRequest, db: Session = Depends(get_db)) -> JobResponse:
+def create_job(
+    payload: JobCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Job:
+    assert_can_create_job(db, current_user, jobs_to_add=1)
+
     job = Job(
+        user_id=current_user.id,
         type=payload.type,
         status=JobStatus.PENDING.value,
         source_type=payload.source_type,
@@ -70,6 +96,8 @@ def create_job(payload: JobCreateRequest, db: Session = Depends(get_db)) -> JobR
     db.commit()
     db.refresh(job)
 
+    increment_jobs_used(db, current_user, 1)
+
     db.add(JobLog(job_id=job.id, level="INFO", message="Job created"))
     db.commit()
 
@@ -81,9 +109,18 @@ def create_job(payload: JobCreateRequest, db: Session = Depends(get_db)) -> JobR
     response_model=list[JobLogResponse],
     summary="Get job logs",
 )
-def get_job_logs(job_id: str, db: Session = Depends(get_db)) -> list[JobLogResponse]:
-    _get_job_or_404(job_id, db)
-    stmt = select(JobLog).where(JobLog.job_id == job_id).order_by(JobLog.created_at.asc())
+def get_job_logs(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[JobLog]:
+    _get_job_or_404(job_id, db, current_user)
+
+    stmt = (
+        select(JobLog)
+        .where(JobLog.job_id == job_id)
+        .order_by(JobLog.created_at.asc())
+    )
     logs = db.scalars(stmt).all()
     return list(logs)
 
@@ -93,8 +130,12 @@ def get_job_logs(job_id: str, db: Session = Depends(get_db)) -> list[JobLogRespo
     response_model=JobActionResponse,
     summary="Enqueue job",
 )
-def enqueue_job(job_id: str, db: Session = Depends(get_db)) -> JobActionResponse:
-    job = _get_job_or_404(job_id, db)
+def enqueue_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> JobActionResponse:
+    job = _get_job_or_404(job_id, db, current_user)
 
     if job.status == JobStatus.RUNNING.value:
         raise HTTPException(
@@ -110,9 +151,12 @@ def enqueue_job(job_id: str, db: Session = Depends(get_db)) -> JobActionResponse
 
     job.status = JobStatus.QUEUED.value
     job.error_message = None
+    db.add(job)
     db.commit()
+    db.refresh(job)
 
     _add_log(db, job.id, "INFO", "Job enqueued")
+
     celery_client.send_task("vatranscribe.jobs.execute", args=[job.id])
 
     return JobActionResponse(
@@ -128,8 +172,12 @@ def enqueue_job(job_id: str, db: Session = Depends(get_db)) -> JobActionResponse
     response_model=JobActionResponse,
     summary="Retry job",
 )
-def retry_job(job_id: str, db: Session = Depends(get_db)) -> JobActionResponse:
-    job = _get_job_or_404(job_id, db)
+def retry_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> JobActionResponse:
+    job = _get_job_or_404(job_id, db, current_user)
 
     if job.status not in {
         JobStatus.FAILED.value,
@@ -145,9 +193,12 @@ def retry_job(job_id: str, db: Session = Depends(get_db)) -> JobActionResponse:
     job.error_message = None
     job.started_at = None
     job.finished_at = None
+    db.add(job)
     db.commit()
+    db.refresh(job)
 
     _add_log(db, job.id, "INFO", "Job retried and enqueued")
+
     celery_client.send_task("vatranscribe.jobs.execute", args=[job.id])
 
     return JobActionResponse(
@@ -163,8 +214,12 @@ def retry_job(job_id: str, db: Session = Depends(get_db)) -> JobActionResponse:
     response_model=JobActionResponse,
     summary="Cancel job",
 )
-def cancel_job(job_id: str, db: Session = Depends(get_db)) -> JobActionResponse:
-    job = _get_job_or_404(job_id, db)
+def cancel_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> JobActionResponse:
+    job = _get_job_or_404(job_id, db, current_user)
 
     if job.status in {JobStatus.SUCCEEDED.value, JobStatus.FAILED.value}:
         raise HTTPException(
@@ -173,7 +228,9 @@ def cancel_job(job_id: str, db: Session = Depends(get_db)) -> JobActionResponse:
         )
 
     job.status = JobStatus.CANCELED.value
+    db.add(job)
     db.commit()
+    db.refresh(job)
 
     _add_log(db, job.id, "WARNING", "Job canceled")
 

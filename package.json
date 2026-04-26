@@ -1,0 +1,7 @@
+{
+  "name": "vatranscribe",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ]
+}

@@ -1,19 +1,13 @@
+from __future__ import annotations
+
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from apps.api.app.config import get_settings
-from apps.api.app.db import Base
-from apps.api.app.models import (  # noqa: F401
-    ExportArtifact,
-    Job,
-    JobLog,
-    MediaAsset,
-    Transcript,
-    TranscriptSegment,
-    User,
-)
+from apps.api.app.database import Base
+
 
 config = context.config
 
@@ -21,19 +15,23 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 settings = get_settings()
+
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
 target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
+    """
+    Запуск миграций в offline-режиме.
+    """
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
-        dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        dialect_opts={"paramstyle": "named"},
     )
 
     with context.begin_transaction():
@@ -41,6 +39,9 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+    """
+    Запуск миграций в online-режиме.
+    """
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
