@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
 
@@ -6,11 +8,13 @@ from yt_dlp import YoutubeDL
 from apps.api.app.config import get_settings
 
 
+def _ffmpeg_path() -> str:
+    settings = get_settings()
+    return str(getattr(settings, "ffmpeg_path", "ffmpeg"))
+
+
 def _cleanup_old_outputs(output_path: Path) -> None:
-    """
-    Remove previous files with the same basename to avoid conflicts,
-    broken partial resumes and incorrect file reuse.
-    """
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     for candidate in output_path.parent.glob(f"{output_path.stem}.*"):
         if candidate.is_file():
             try:
@@ -27,15 +31,11 @@ def _cleanup_old_outputs(output_path: Path) -> None:
 
 
 def _base_ydl_options() -> dict[str, Any]:
-    """
-    Base yt-dlp options shared across analyze and download flows.
-    """
-    settings = get_settings()
     return {
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
-        "ffmpeg_location": settings.ffmpeg_path,
+        "ffmpeg_location": _ffmpeg_path(),
         "retries": 10,
         "fragment_retries": 10,
         "file_access_retries": 3,
@@ -50,16 +50,11 @@ def _base_ydl_options() -> dict[str, Any]:
 
 
 def analyze_url(url: str) -> dict[str, Any]:
-    """
-    Analyze downloadable media formats for a given URL.
-    """
-    options = _base_ydl_options()
-
-    with YoutubeDL(options) as ydl:
-        info = ydl.extract_info(url.strip(), download=False)
+    clean_url = url.strip()
+    with YoutubeDL(_base_ydl_options()) as ydl:
+        info = ydl.extract_info(clean_url, download=False)
 
     formats = info.get("formats", []) or []
-
     analyzed_formats: list[dict[str, Any]] = []
     for item in formats:
         analyzed_formats.append(
@@ -73,57 +68,59 @@ def analyze_url(url: str) -> dict[str, Any]:
                 "fps": item.get("fps"),
                 "vcodec": item.get("vcodec"),
                 "acodec": item.get("acodec"),
-                "filesize": item.get("filesize"),
+                "filesize": item.get("filesize") or item.get("filesize_approx"),
                 "tbr": item.get("tbr"),
                 "audio_only": item.get("vcodec") == "none",
                 "video_only": item.get("acodec") == "none",
             }
         )
 
+    duration = info.get("duration")
+    webpage_url = info.get("webpage_url") or clean_url
+    extractor = info.get("extractor")
+
     return {
+        "url": webpage_url,
+        "platform": extractor,
         "title": info.get("title"),
-        "duration": info.get("duration"),
-        "webpage_url": info.get("webpage_url") or url.strip(),
-        "extractor": info.get("extractor"),
+        "duration_seconds": duration,
+        "thumbnail_url": info.get("thumbnail"),
+        "available_formats": analyzed_formats,
+        "extract_audio": False,
+        # legacy aliases for older frontend/tests
+        "duration": duration,
+        "webpage_url": webpage_url,
+        "extractor": extractor,
         "formats": analyzed_formats,
     }
 
 
 def _resolve_final_file(output_path: Path, requested_format: str) -> Path:
-    """
-    Resolve final downloaded file after yt-dlp has completed.
-    """
     expected_path = output_path.with_suffix(f".{requested_format}")
     if expected_path.exists():
         return expected_path
-
     if output_path.exists():
         return output_path
 
-    candidates = sorted(output_path.parent.glob(f"{output_path.stem}.*"))
+    candidates = sorted(
+        candidate for candidate in output_path.parent.glob(f"{output_path.stem}.*") if candidate.is_file()
+    )
+    candidates = [candidate for candidate in candidates if not candidate.name.endswith(".part")]
     if not candidates:
         raise FileNotFoundError(f"Downloaded file not found for base path: {output_path}")
-
     return candidates[0]
 
 
-def _download_single_file(
-    *,
-    url: str,
-    fmt: str,
-    output_path: Path,
-) -> dict[str, Any]:
+def _download_single_file(*, url: str, fmt: str, output_path: Path, requested_format: str) -> dict[str, Any]:
     options = {
         **_base_ydl_options(),
         "format": fmt,
         "outtmpl": str(output_path.with_suffix(".%(ext)s")),
     }
-
     with YoutubeDL(options) as ydl:
         info = ydl.extract_info(url.strip(), download=True)
 
-    final_path = _resolve_final_file(output_path, output_path.suffix.lstrip(".") or "mp4")
-
+    final_path = _resolve_final_file(output_path, requested_format)
     return {
         "title": info.get("title"),
         "extractor": info.get("extractor"),
@@ -141,53 +138,30 @@ def download_media(
     video_format_id: str | None = None,
     audio_format_id: str | None = None,
 ) -> dict[str, Any]:
-    """
-    Download media file using yt-dlp.
-
-    Modes
-    -----
-    mp3:
-        Download audio and convert to MP3.
-    mp4 fast:
-        Download MP4 quickly, allowing yt-dlp merge as-is.
-    mp4 compatible:
-        Download best video-only and best audio-only separately.
-        Final compatibility merge is handled later by explicit ffmpeg call.
-    """
     output_path.parent.mkdir(parents=True, exist_ok=True)
-
     requested_format = requested_format.lower().strip()
     mp4_mode = (mp4_mode or "compatible").lower().strip()
     clean_url = url.strip()
 
     if requested_format not in {"mp3", "mp4"}:
         raise ValueError("requested_format must be 'mp3' or 'mp4'")
-
     if mp4_mode not in {"fast", "compatible"}:
         raise ValueError("mp4_mode must be 'fast' or 'compatible'")
 
     _cleanup_old_outputs(output_path)
 
     if requested_format == "mp3":
-        ydl_format = audio_format_id or "bestaudio[ext=m4a]/bestaudio/best"
         options = {
             **_base_ydl_options(),
-            "format": ydl_format,
+            "format": audio_format_id or "bestaudio[ext=m4a]/bestaudio/best",
             "outtmpl": str(output_path.with_suffix(".%(ext)s")),
             "postprocessors": [
-                {
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "192",
-                }
+                {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}
             ],
         }
-
         with YoutubeDL(options) as ydl:
             info = ydl.extract_info(clean_url, download=True)
-
         final_path = _resolve_final_file(output_path, requested_format)
-
         return {
             "title": info.get("title"),
             "extractor": info.get("extractor"),
@@ -197,14 +171,13 @@ def download_media(
             "mp4_mode": mp4_mode,
         }
 
-    # MP4 modes
     if mp4_mode == "fast":
         if video_format_id and audio_format_id:
             ydl_format = f"{video_format_id}+{audio_format_id}"
         elif video_format_id:
             ydl_format = f"{video_format_id}+ba/b"
         else:
-            ydl_format = "bv*+ba/b"
+            ydl_format = "bv*[ext=mp4]+ba[ext=m4a]/bv*+ba/b"
 
         options = {
             **_base_ydl_options(),
@@ -212,12 +185,9 @@ def download_media(
             "outtmpl": str(output_path.with_suffix(".%(ext)s")),
             "merge_output_format": "mp4",
         }
-
         with YoutubeDL(options) as ydl:
             info = ydl.extract_info(clean_url, download=True)
-
         final_path = _resolve_final_file(output_path, requested_format)
-
         return {
             "title": info.get("title"),
             "extractor": info.get("extractor"),
@@ -227,27 +197,22 @@ def download_media(
             "mp4_mode": mp4_mode,
         }
 
-    # MP4 compatible:
-    # download best video-only and audio-only separately,
-    # merge later via explicit ffmpeg in worker.
     video_base = output_path.with_name(f"{output_path.stem}__video.mp4")
     audio_base = output_path.with_name(f"{output_path.stem}__audio.m4a")
-
     _cleanup_old_outputs(video_base)
     _cleanup_old_outputs(audio_base)
 
-    video_fmt = video_format_id or "bestvideo[ext=mp4]/bestvideo/best"
-    audio_fmt = audio_format_id or "bestaudio[ext=m4a]/bestaudio/best"
-
     video_result = _download_single_file(
         url=clean_url,
-        fmt=video_fmt,
+        fmt=video_format_id or "bestvideo[ext=mp4]/bestvideo/best",
         output_path=video_base,
+        requested_format="mp4",
     )
     audio_result = _download_single_file(
         url=clean_url,
-        fmt=audio_fmt,
+        fmt=audio_format_id or "bestaudio[ext=m4a]/bestaudio/best",
         output_path=audio_base,
+        requested_format="m4a",
     )
 
     return {

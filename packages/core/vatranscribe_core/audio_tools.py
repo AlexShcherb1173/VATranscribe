@@ -1,19 +1,21 @@
+from __future__ import annotations
+
 import subprocess
 from pathlib import Path
 
 from apps.api.app.config import get_settings
 
 
-def extract_audio_for_transcription(input_path: Path, output_path: Path) -> Path:
-    """
-    Extract mono 16 kHz WAV audio for transcription from any input media.
-    """
+def _ffmpeg_path() -> str:
     settings = get_settings()
+    return str(getattr(settings, "ffmpeg_path", "ffmpeg"))
 
+
+def extract_audio_for_transcription(input_path: Path, output_path: Path) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     command = [
-        settings.ffmpeg_path,
+        _ffmpeg_path(),
         "-y",
         "-i",
         str(input_path),
@@ -27,11 +29,5 @@ def extract_audio_for_transcription(input_path: Path, output_path: Path) -> Path
         str(output_path),
     ]
 
-    subprocess.run(
-        command,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
+    subprocess.run(command, check=True, capture_output=True, text=True)
     return output_path

@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+from enum import Enum
+
+
 class JobType(str, Enum):
     DOWNLOAD = "download"
     TRANSCRIBE = "transcribe"

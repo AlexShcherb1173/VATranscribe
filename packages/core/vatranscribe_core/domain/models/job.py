@@ -1,8 +1,18 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+from uuid import UUID
+
+from packages.core.vatranscribe_core.domain.enums import JobStatus, JobType, SourceType
+
+
+@dataclass(slots=True)
 class Job:
     id: UUID
     type: JobType
     status: JobStatus
-    source_type: SourceType
+    source_type: SourceType | None
     user_id: UUID | None
     title: str | None
     input_url: str | None
