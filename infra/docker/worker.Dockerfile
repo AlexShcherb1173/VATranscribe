@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -8,8 +8,25 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-RUN apt-get update -o Acquire::Retries=5 \
-    && apt-get install -y --no-install-recommends ffmpeg build-essential curl ca-certificates \
+RUN printf '%s\n' \
+    'Types: deb' \
+    'URIs: https://deb.debian.org/debian' \
+    'Suites: bookworm bookworm-updates' \
+    'Components: main' \
+    'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg' \
+    '' \
+    'Types: deb' \
+    'URIs: https://security.debian.org/debian-security' \
+    'Suites: bookworm-security' \
+    'Components: main' \
+    'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg' \
+    > /etc/apt/sources.list.d/debian.sources \
+    && apt-get update -o Acquire::Retries=10 \
+    && apt-get install -y --no-install-recommends \
+        ffmpeg \
+        curl \
+        ca-certificates \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml README.md ./
