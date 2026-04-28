@@ -302,16 +302,23 @@ const dictionaries = {
     },
 
     result: {
-      title: "Result workspace",
-      transcript: "Transcript",
-      summary: "Summary",
-      subtitles: "Subtitles",
-      contentIdeas: "Content ideas",
-      export: "Export",
-      locked: "Pro feature",
-      upgradeCta:
-        "Want AI summary, subtitles and content repurposing? Upgrade to Pro.",
-    },
+  title: "Result workspace",
+  readyTitle: "Transcript ready",
+  notFound: "Result not found",
+  backToTranscripts: "Back to transcripts",
+  downloadArtifact: "Download artifact",
+  subscription: "Subscription",
+  subscriptionCta:
+    "Need AI summary, subtitles and extended export? Go to subscriptions.",
+  transcript: "Transcript",
+  summary: "Summary",
+  subtitles: "Subtitles",
+  contentIdeas: "Content ideas",
+  export: "Export",
+  locked: "Subscription feature",
+  upgradeCta:
+    "Need AI summary, subtitles and content repurposing? Go to subscriptions.",
+},
 
     pricing: {
       title: "Upgrade when the result is useful",
@@ -684,18 +691,23 @@ const dictionaries = {
     },
 
     result: {
-      title:
-        "Рабочая область результата",
-      transcript: "Транскрипт",
-      summary: "Summary",
-      subtitles: "Субтитры",
-      contentIdeas:
-        "Идеи контента",
-      export: "Экспорт",
-      locked: "Pro-функция",
-      upgradeCta:
-        "Нужны AI summary и субтитры? Перейди на Pro.",
-    },
+  title: "Рабочая область результата",
+  readyTitle: "Транскрипт готов",
+  notFound: "Результат не найден",
+  backToTranscripts: "Назад к транскриптам",
+  downloadArtifact: "Скачать файл",
+  subscription: "Подписка",
+  subscriptionCta:
+    "Нужны AI summary, субтитры и расширенный экспорт? Перейди к подпискам.",
+  transcript: "Транскрипт",
+  summary: "Сводка",
+  subtitles: "Субтитры",
+  contentIdeas: "Идеи контента",
+  export: "Экспорт",
+  locked: "Функция по подписке",
+  upgradeCta:
+    "Нужны AI summary, субтитры и переработка контента? Перейди к подпискам.",
+},
 
     pricing: {
       title:

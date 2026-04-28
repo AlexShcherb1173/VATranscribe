@@ -175,7 +175,7 @@ export function DashboardPage() {
             </span>
           </div>
 
-          <UploaderPanel />
+          <UploaderPanel redirectToFilesOnUpload />
         </div>
       </section>
 

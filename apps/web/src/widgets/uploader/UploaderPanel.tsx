@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { uploadMediaFile } from "@/features/uploads/api/uploads";
@@ -8,6 +9,10 @@ import { UploadQueue } from "@/features/uploads/ui/UploadQueue";
 import { UploadResultCard } from "@/features/uploads/ui/UploadResultCard";
 import { extractErrorMessage } from "@/shared/lib/auth-errors";
 import { toastError, toastInfo, toastSuccess } from "@/shared/ui/toast";
+
+type UploaderPanelProps = {
+  redirectToFilesOnUpload?: boolean;
+};
 
 function createQueueItem(file: File): UploadQueueItem {
   return {
@@ -21,13 +26,15 @@ function createQueueItem(file: File): UploadQueueItem {
   };
 }
 
-export function UploaderPanel() {
+export function UploaderPanel({ redirectToFilesOnUpload = false }: UploaderPanelProps) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [queue, setQueue] = useState<UploadQueueItem[]>([]);
 
   const uploadMutation = useMutation({
     mutationFn: async (files: File[]) => {
       const initialItems = files.map(createQueueItem);
+      let firstUploadedMediaAssetId: string | null = null;
 
       setQueue((prev) => [...initialItems, ...prev]);
 
@@ -60,6 +67,10 @@ export function UploaderPanel() {
               ),
             );
           });
+
+          if (!firstUploadedMediaAssetId) {
+            firstUploadedMediaAssetId = uploaded.id;
+          }
 
           setQueue((prev) =>
             prev.map((queueItem) =>
@@ -97,10 +108,16 @@ export function UploaderPanel() {
           toastError("Upload failed", message);
         }
       }
+
+      return firstUploadedMediaAssetId;
     },
-    onSuccess: async () => {
+    onSuccess: async (firstUploadedMediaAssetId) => {
       await queryClient.invalidateQueries({ queryKey: ["media-files"] });
       await queryClient.invalidateQueries({ queryKey: ["quota", "me"] });
+
+      if (redirectToFilesOnUpload && firstUploadedMediaAssetId) {
+        navigate(`/app/files?fileId=${firstUploadedMediaAssetId}`);
+      }
     },
   });
 
