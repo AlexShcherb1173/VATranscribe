@@ -6,6 +6,24 @@ type UploadResultCardProps = {
   items: UploadQueueItem[];
 };
 
+type SummaryItemProps = {
+  label: string;
+  value: string;
+  color: string;
+};
+
+function SummaryItem({ label, value, color }: SummaryItemProps) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+      <div className="text-xs uppercase tracking-wide text-slate-500">
+        {label}
+      </div>
+
+      <div className={`mt-2 text-2xl font-semibold ${color}`}>{value}</div>
+    </div>
+  );
+}
+
 export function UploadResultCard({ items }: UploadResultCardProps) {
   const { t } = useI18n();
 
@@ -25,11 +43,13 @@ export function UploadResultCard({ items }: UploadResultCardProps) {
           value={String(succeeded)}
           color="text-emerald-300"
         />
+
         <SummaryItem
           label={t.uploads.uploadingLabel}
           value={String(uploading)}
           color="text-blue-300"
         />
+
         <SummaryItem
           label={t.uploads.failed}
           value={String(failed)}
@@ -37,24 +57,5 @@ export function UploadResultCard({ items }: UploadResultCardProps) {
         />
       </div>
     </Card>
-  );
-}
-
-type SummaryItemProps = {
-  label: string;
-  value: string;
-  color: string;
-};
-
-function SummaryItem({ label, value, color }: SummaryItemProps) {
-  return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-      <div className="text-xs uppercase tracking-wide text-slate-500">
-        {label}
-      </div>
-      <div className={`mt-2 text-2xl font-semibold ${color}`}>
-        {value}
-      </div>
-    </div>
   );
 }

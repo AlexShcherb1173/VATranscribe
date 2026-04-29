@@ -1,7 +1,6 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { createDownloadJob } from "@/features/downloads/api/downloads";
 import { useBillingOverviewQuery } from "@/shared/hooks/useBillingOverviewQuery";
 import { useJobsQuery } from "@/shared/hooks/useJobsQuery";
 import { useMediaFilesQuery } from "@/shared/hooks/useMediaFilesQuery";
@@ -13,7 +12,11 @@ import {
   formatHoursFromSeconds,
   percentage,
 } from "@/shared/lib/format";
-import { toastError, toastSuccess } from "@/shared/ui/toast";
+import {
+  clearPendingStartUrl,
+  getPendingStartUrl,
+  savePendingStartUrl,
+} from "@/shared/lib/pendingStartUrl";
 import { UploaderPanel } from "@/widgets/uploader/UploaderPanel";
 
 function UsageBar({
@@ -32,26 +35,14 @@ function UsageBar({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.04]">
       <div className="flex items-center justify-between gap-3 text-sm">
-        <span className="font-medium text-slate-700 dark:text-slate-200">
-          {label}
-        </span>
-
-        <span
-          className={
-            pct >= 80
-              ? "font-semibold text-amber-600"
-              : "text-slate-500 dark:text-slate-400"
-          }
-        >
+        <span className="font-medium text-slate-700 dark:text-slate-200">{label}</span>
+        <span className={pct >= 80 ? "font-semibold text-amber-600" : "text-slate-500 dark:text-slate-400"}>
           {value}
         </span>
       </div>
 
       <div className="mt-3 h-2 rounded-full bg-slate-100 dark:bg-white/10">
-        <div
-          className="h-2 rounded-full bg-slate-950 dark:bg-cyan-300"
-          style={{ width: `${pct}%` }}
-        />
+        <div className="h-2 rounded-full bg-slate-950 dark:bg-cyan-300" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -67,135 +58,87 @@ export function DashboardPage() {
   const { data: transcripts = [] } = useTranscriptsQuery();
 
   const [url, setUrl] = useState("");
-  const [isCreatingDownload, setIsCreatingDownload] = useState(false);
-  const [pricingOpen, setPricingOpen] = useState(false);
+
+  useEffect(() => {
+    const pendingUrl = getPendingStartUrl();
+
+    if (pendingUrl) {
+      setUrl(pendingUrl);
+      clearPendingStartUrl();
+    }
+  }, []);
 
   const recentJobs = useMemo(() => jobs.slice(0, 4), [jobs]);
-
   const successfulJobs = jobs.filter((job) => job.status === "succeeded").length;
-
-  const runningJobs = jobs.filter(
-    (job) => job.status === "queued" || job.status === "running"
-  ).length;
+  const runningJobs = jobs.filter((job) => job.status === "queued" || job.status === "running").length;
 
   const quota = billing?.quota;
 
   const usageAlert = quota
-    ? percentage(
-        quota.transcription_seconds_used,
-        quota.transcription_seconds_limit
-      ) >= 80
+    ? percentage(quota.transcription_seconds_used, quota.transcription_seconds_limit) >= 80
     : false;
 
-  async function handlePasteLink(event: FormEvent<HTMLFormElement>) {
+  function handlePasteLink(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!url.trim()) {
+    const cleanUrl = url.trim();
+
+    if (!cleanUrl) {
       return;
     }
 
-    setIsCreatingDownload(true);
-
-    try {
-      await createDownloadJob({
-        url: url.trim(),
-        requested_format: "mp3",
-        requested_file_name: `vatranscribe-${Date.now()}.mp3`,
-        mp4_mode: "compatible",
-        selected_video_format_id: null,
-        selected_audio_format_id: null,
-      });
-
-      setUrl("");
-
-      toastSuccess(t.downloads.created, t.dashboard.magicFlow);
-
-      navigate("/app/jobs");
-    } catch (error: any) {
-      toastError(
-        t.downloads.failedCreate,
-        error?.response?.data?.detail || t.common.requestFailed
-      );
-    } finally {
-      setIsCreatingDownload(false);
-    }
+    savePendingStartUrl(cleanUrl);
+    navigate("/app/downloads");
   }
 
   return (
-    <div className="space-y-8">
-      <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="premium-card overflow-hidden p-6 md:p-8">
-          <div className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-cyan-700 dark:border-cyan-300/20 dark:bg-cyan-300/10 dark:text-cyan-200">
-            {t.dashboard.eyebrow}
-          </div>
-
-          <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-[-0.05em] text-slate-950 dark:text-white md:text-6xl">
+    <div className="space-y-6">
+      <section className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+        <div className="premium-card p-4 md:p-5">
+          <h1 className="text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white md:text-4xl">
             {t.dashboard.title}
           </h1>
 
-          <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 dark:text-slate-300">
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
             {t.dashboard.description}
           </p>
 
           <form
             onSubmit={handlePasteLink}
-            className="mt-7 flex flex-col gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-2 dark:border-white/10 dark:bg-slate-950/60 md:flex-row"
+            className="mt-4 flex flex-col gap-3 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-2 dark:border-white/10 dark:bg-slate-950/60 md:flex-row"
           >
             <input
               value={url}
               onChange={(event) => setUrl(event.target.value)}
               placeholder={t.dashboard.urlPlaceholder}
-              className="min-h-14 flex-1 rounded-2xl border border-transparent bg-white px-5 text-sm outline-none transition focus:border-cyan-300 dark:bg-white/5 dark:text-white"
+              className="min-h-11 flex-1 rounded-xl border border-transparent bg-white px-4 text-sm outline-none transition focus:border-cyan-300 dark:bg-white/5 dark:text-white"
             />
 
-            <button
-              type="submit"
-              disabled={isCreatingDownload}
-              className="premium-button min-h-14 disabled:opacity-60"
-            >
-              {isCreatingDownload ? t.common.processing : t.common.pasteLink}
+            <button type="submit" className="premium-button min-h-11">
+              {t.common.pasteLink}
             </button>
           </form>
         </div>
 
-        <div className="premium-card p-5 md:p-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold text-slate-950 dark:text-white">
-                {t.common.uploadFile}
-              </div>
-
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                MP3, WAV, MP4, MOV, M4A
-              </p>
+        <div className="premium-card p-4 md:p-5">
+          <div className="mb-3">
+            <div className="text-sm font-semibold text-slate-950 dark:text-white">
+              {t.common.uploadFile}
             </div>
 
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-white/10 dark:text-slate-300">
-              {t.uploads.fastPath}
-            </span>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              MP3, WAV, MP4, MOV, M4A
+            </p>
           </div>
 
-          <UploaderPanel redirectToFilesOnUpload />
+          <UploaderPanel compact redirectToFilesOnSelect />
         </div>
       </section>
 
       {usageAlert ? (
-        <div className="flex flex-col gap-3 rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5 text-amber-950 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-100 md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="font-semibold">{t.dashboard.almostOut}</div>
-
-            <div className="mt-1 text-sm opacity-80">
-              {t.dashboard.magicFlow}
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setPricingOpen(true)}
-            className="rounded-2xl bg-amber-950 px-5 py-3 text-sm font-semibold text-white dark:bg-amber-200 dark:text-amber-950"
-          >
-            {t.common.upgradeToPro}
-          </button>
+        <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5 text-amber-950 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-100">
+          <div className="font-semibold">{t.dashboard.almostOut}</div>
+          <div className="mt-1 text-sm opacity-80">{t.dashboard.magicFlow}</div>
         </div>
       ) : null}
 
@@ -207,10 +150,7 @@ export function DashboardPage() {
           [t.common.processing, runningJobs.toString()],
         ].map(([label, value]) => (
           <div key={label} className="premium-card p-5">
-            <div className="text-sm text-slate-500 dark:text-slate-400">
-              {label}
-            </div>
-
+            <div className="text-sm text-slate-500 dark:text-slate-400">{label}</div>
             <div className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
               {value}
             </div>
@@ -221,21 +161,19 @@ export function DashboardPage() {
       {quota ? (
         <section className="grid gap-4 lg:grid-cols-3">
           <UsageBar
-            label="Storage"
+            label={t.profile.storage}
             used={quota.storage_bytes_used}
             limit={quota.storage_bytes_limit}
-            value={`${formatBytes(quota.storage_bytes_used)} / ${formatBytes(
-              quota.storage_bytes_limit
-            )}`}
+            value={`${formatBytes(quota.storage_bytes_used)} / ${formatBytes(quota.storage_bytes_limit)}`}
           />
 
           <UsageBar
-            label="Transcription"
+            label={t.profile.transcriptionTime}
             used={quota.transcription_seconds_used}
             limit={quota.transcription_seconds_limit}
-            value={`${formatHoursFromSeconds(
-              quota.transcription_seconds_used
-            )} / ${formatHoursFromSeconds(quota.transcription_seconds_limit)}`}
+            value={`${formatHoursFromSeconds(quota.transcription_seconds_used)} / ${formatHoursFromSeconds(
+              quota.transcription_seconds_limit,
+            )}`}
           />
 
           <UsageBar
@@ -254,11 +192,8 @@ export function DashboardPage() {
               {t.dashboard.recentResults}
             </h2>
 
-            <Link
-              to="/app/transcriptions"
-              className="text-sm font-semibold text-cyan-700 dark:text-cyan-300"
-            >
-              {t.common.openFile}
+            <Link to="/app/transcriptions" className="text-sm font-semibold text-cyan-700 dark:text-cyan-300">
+              {t.common.viewAll}
             </Link>
           </div>
 
@@ -270,10 +205,7 @@ export function DashboardPage() {
                 className="block rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:bg-white hover:shadow-md dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <div className="font-medium text-slate-950 dark:text-white">
-                    {t.common.ready}
-                  </div>
-
+                  <div className="font-medium text-slate-950 dark:text-white">{t.common.ready}</div>
                   <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
                     {t.common.ready}
                   </span>
@@ -283,9 +215,7 @@ export function DashboardPage() {
                   {transcript.full_text || transcript.id}
                 </p>
 
-                <div className="mt-3 text-xs text-slate-400">
-                  {formatDate(transcript.created_at)}
-                </div>
+                <div className="mt-3 text-xs text-slate-400">{formatDate(transcript.created_at)}</div>
               </Link>
             ))}
 
@@ -303,10 +233,7 @@ export function DashboardPage() {
               {t.jobs.title}
             </h2>
 
-            <Link
-              to="/app/jobs"
-              className="text-sm font-semibold text-cyan-700 dark:text-cyan-300"
-            >
+            <Link to="/app/jobs" className="text-sm font-semibold text-cyan-700 dark:text-cyan-300">
               {t.jobs.actions}
             </Link>
           </div>
@@ -319,13 +246,8 @@ export function DashboardPage() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="font-medium text-slate-950 dark:text-white">
-                      {job.title || job.id}
-                    </div>
-
-                    <div className="mt-1 text-xs uppercase tracking-wide text-slate-400">
-                      {job.type}
-                    </div>
+                    <div className="font-medium text-slate-950 dark:text-white">{job.title || job.id}</div>
+                    <div className="mt-1 text-xs uppercase tracking-wide text-slate-400">{job.type}</div>
                   </div>
 
                   <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-medium capitalize text-white dark:bg-white dark:text-slate-950">
@@ -336,14 +258,11 @@ export function DashboardPage() {
             ))}
 
             {!recentJobs.length ? (
-              <div className="text-sm text-slate-500 dark:text-slate-400">
-                {t.jobs.select}
-              </div>
+              <div className="text-sm text-slate-500 dark:text-slate-400">{t.jobs.select}</div>
             ) : null}
           </div>
         </div>
       </section>
-
     </div>
   );
 }

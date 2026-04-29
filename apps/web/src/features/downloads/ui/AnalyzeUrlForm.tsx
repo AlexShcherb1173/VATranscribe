@@ -8,7 +8,11 @@ type AnalyzeUrlFormProps = {
   onAnalyze: (url: string) => void;
 };
 
-export function AnalyzeUrlForm({ initialUrl = "", isLoading, onAnalyze }: AnalyzeUrlFormProps) {
+export function AnalyzeUrlForm({
+  initialUrl = "",
+  isLoading,
+  onAnalyze,
+}: AnalyzeUrlFormProps) {
   const { t } = useI18n();
   const [url, setUrl] = useState(initialUrl);
 
@@ -18,16 +22,29 @@ export function AnalyzeUrlForm({ initialUrl = "", isLoading, onAnalyze }: Analyz
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
     const normalized = url.trim();
-    if (!normalized) return;
+
+    if (!normalized) {
+      return;
+    }
+
     onAnalyze(normalized);
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+    <form
+      onSubmit={handleSubmit}
+      className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5"
+    >
       <div className="mb-3">
-        <h2 className="text-lg font-medium text-white">{t.downloads.analyzeTitle}</h2>
-        <p className="mt-1 text-sm text-slate-400">{t.downloads.analyzeText}</p>
+        <h2 className="text-lg font-medium text-white">
+          {t.downloads.analyzeTitle}
+        </h2>
+
+        <p className="mt-1 text-sm text-slate-400">
+          {t.downloads.analyzeText}
+        </p>
       </div>
 
       <div className="flex flex-col gap-3 xl:flex-row">
@@ -36,12 +53,13 @@ export function AnalyzeUrlForm({ initialUrl = "", isLoading, onAnalyze }: Analyz
           value={url}
           onChange={(event) => setUrl(event.target.value)}
           placeholder="https://..."
-          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-500"
+          className="min-h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-500"
         />
+
         <button
           type="submit"
           disabled={isLoading || !url.trim()}
-          className="rounded-xl bg-cyan-500 px-5 py-3 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-12 min-w-[170px] items-center justify-center rounded-xl bg-cyan-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isLoading ? t.downloads.analyzing : t.downloads.analyze}
         </button>

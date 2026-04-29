@@ -1,7 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
-import { analyzeDownloadUrl, createDownloadJob } from "@/features/downloads/api/downloads";
+import {
+  analyzeDownloadUrl,
+  createDownloadJob,
+} from "@/features/downloads/api/downloads";
 import type {
   DownloadAnalyzeResponse,
   DownloadFormatInfo,
@@ -9,13 +12,18 @@ import type {
 import { AnalyzeUrlForm } from "@/features/downloads/ui/AnalyzeUrlForm";
 import { DownloadJobForm } from "@/features/downloads/ui/DownloadJobForm";
 import { FormatsTable } from "@/features/downloads/ui/FormatsTable";
-import { PageHeader } from "@/shared/ui/PageHeader";
-import { Card } from "@/shared/ui/Card";
 import { useI18n } from "@/shared/i18n";
 import { extractErrorMessage } from "@/shared/lib/auth-errors";
+import {
+  clearPendingStartUrl,
+  getPendingStartUrl,
+} from "@/shared/lib/pendingStartUrl";
+import { Card } from "@/shared/ui/Card";
+import { PageHeader } from "@/shared/ui/PageHeader";
 
 export function DownloadsPage() {
   const { t } = useI18n();
+
   const [analysis, setAnalysis] = useState<DownloadAnalyzeResponse | null>(null);
   const [analysisUrl, setAnalysisUrl] = useState("");
   const [selectedVideoFormatId, setSelectedVideoFormatId] = useState("");
@@ -24,8 +32,18 @@ export function DownloadsPage() {
   const [jobResultMessage, setJobResultMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    const pendingUrl = getPendingStartUrl();
+
+    if (pendingUrl) {
+      setAnalysisUrl(pendingUrl);
+      clearPendingStartUrl();
+    }
+  }, []);
+
   const analyzeMutation = useMutation({
     mutationFn: analyzeDownloadUrl,
+
     onSuccess: (data, variables) => {
       setAnalysis(data);
       setAnalysisUrl(variables.url);
@@ -33,27 +51,32 @@ export function DownloadsPage() {
       setJobResultMessage(null);
 
       const bestAudio = data.formats.find(
-        (item: DownloadFormatInfo) => item.audio_only || item.video_only,
+        (item: DownloadFormatInfo) => item.audio_only,
       );
+
       const bestVideo = data.formats.find(
-        (item: DownloadFormatInfo) => !item.audio_only,
+        (item: DownloadFormatInfo) => !item.audio_only && !item.video_only,
       );
 
       setSelectedAudioFormatId(bestAudio?.format_id || "");
       setSelectedVideoFormatId(bestVideo?.format_id || "");
     },
+
     onError: (error: any) => {
       setAnalysis(null);
+      setJobResultMessage(null);
       setErrorMessage(extractErrorMessage(error, t) || t.downloads.failedAnalyze);
     },
   });
 
   const createJobMutation = useMutation({
     mutationFn: createDownloadJob,
+
     onSuccess: (data) => {
       setJobResultMessage(`${t.downloads.created}: ${data.id}`);
       setErrorMessage(null);
     },
+
     onError: (error: any) => {
       setJobResultMessage(null);
       setErrorMessage(extractErrorMessage(error, t) || t.downloads.failedCreate);
@@ -64,7 +87,10 @@ export function DownloadsPage() {
 
   return (
     <div>
-      <PageHeader title={t.downloads.title} description={t.downloads.description} />
+      <PageHeader
+        title={t.downloads.title}
+        description={t.downloads.description}
+      />
 
       <div className="grid gap-6">
         <AnalyzeUrlForm
@@ -75,15 +101,25 @@ export function DownloadsPage() {
 
         {errorMessage ? (
           <Card className="border-rose-900/60 bg-rose-950/30 p-4">
-            <div className="text-sm font-medium text-rose-300">{t.common.error}</div>
-            <div className="mt-1 text-sm text-rose-200">{errorMessage}</div>
+            <div className="text-sm font-medium text-rose-300">
+              {t.common.error}
+            </div>
+
+            <div className="mt-1 text-sm text-rose-200">
+              {errorMessage}
+            </div>
           </Card>
         ) : null}
 
         {jobResultMessage ? (
           <Card className="border-emerald-900/60 bg-emerald-950/30 p-4">
-            <div className="text-sm font-medium text-emerald-300">{t.common.success}</div>
-            <div className="mt-1 text-sm text-emerald-200">{jobResultMessage}</div>
+            <div className="text-sm font-medium text-emerald-300">
+              {t.common.success}
+            </div>
+
+            <div className="mt-1 text-sm text-emerald-200">
+              {jobResultMessage}
+            </div>
           </Card>
         ) : null}
 
@@ -92,22 +128,45 @@ export function DownloadsPage() {
             <Card className="p-5">
               <div className="grid gap-4 lg:grid-cols-4">
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-slate-500">{t.downloads.titleLabel}</div>
-                  <div className="mt-1 text-sm text-white">{analysis.title || t.common.unavailable}</div>
-                </div>
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-slate-500">{t.downloads.platform}</div>
-                  <div className="mt-1 text-sm text-white">{analysis.extractor || t.common.unavailable}</div>
-                </div>
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-slate-500">{t.downloads.duration}</div>
+                  <div className="text-xs uppercase tracking-wide text-slate-500">
+                    {t.downloads.titleLabel}
+                  </div>
+
                   <div className="mt-1 text-sm text-white">
-                    {analysis.duration ? `${analysis.duration} sec` : t.common.unavailable}
+                    {analysis.title || t.common.unavailable}
                   </div>
                 </div>
+
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-slate-500">{t.downloads.formats}</div>
-                  <div className="mt-1 text-sm text-white">{formatsCount}</div>
+                  <div className="text-xs uppercase tracking-wide text-slate-500">
+                    {t.downloads.platform}
+                  </div>
+
+                  <div className="mt-1 text-sm text-white">
+                    {analysis.extractor || t.common.unavailable}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-slate-500">
+                    {t.downloads.duration}
+                  </div>
+
+                  <div className="mt-1 text-sm text-white">
+                    {analysis.duration
+                      ? `${analysis.duration} sec`
+                      : t.common.unavailable}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-slate-500">
+                    {t.downloads.formats}
+                  </div>
+
+                  <div className="mt-1 text-sm text-white">
+                    {formatsCount}
+                  </div>
                 </div>
               </div>
             </Card>
@@ -143,7 +202,10 @@ export function DownloadsPage() {
           </>
         ) : (
           <Card className="p-6">
-            <div className="text-lg font-medium text-white">{t.downloads.waitingTitle}</div>
+            <div className="text-lg font-medium text-white">
+              {t.downloads.waitingTitle}
+            </div>
+
             <p className="mt-2 max-w-2xl text-sm text-slate-400">
               {t.downloads.waitingText}
             </p>

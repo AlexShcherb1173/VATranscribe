@@ -17,6 +17,7 @@ import { UploaderPanel } from "@/widgets/uploader/UploaderPanel";
 export function FilesPage() {
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
+
   const [selectedFileId, setSelectedFileId] = useState<string | null>(
     searchParams.get("fileId"),
   );
@@ -45,6 +46,7 @@ export function FilesPage() {
     }
 
     const exists = files.some((file) => file.id === selectedFileId);
+
     if (!exists) {
       setSelectedFile(files[0].id);
     }
@@ -68,7 +70,7 @@ export function FilesPage() {
       const blob = await downloadMediaFile(file.id);
       saveBlob(blob, file.stored_name || file.original_name || `media-${file.id}`);
     } catch (error: any) {
-      toastError("Download failed", extractErrorMessage(error));
+      toastError(t.common.failed, extractErrorMessage(error));
     } finally {
       setDownloadingFileId(null);
     }
@@ -106,12 +108,14 @@ export function FilesPage() {
                   <div className="space-y-2">
                     <div>
                       <span className="text-slate-500">{t.files.name}:</span>{" "}
-                      {selectedFile.stored_name}
+                      {selectedFile.stored_name || selectedFile.original_name}
                     </div>
+
                     <div>
                       <span className="text-slate-500">{t.files.kind}:</span>{" "}
                       {selectedFile.kind}
                     </div>
+
                     <div>
                       <span className="text-slate-500">{t.files.id}:</span>{" "}
                       {selectedFile.id}
@@ -126,8 +130,8 @@ export function FilesPage() {
                       className="rounded-xl bg-cyan-500 px-3 py-2 text-xs font-medium text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
                     >
                       {downloadingFileId === selectedFile.id
-                        ? "Downloading..."
-                        : t.common.openFile}
+                        ? t.downloads.creating
+                        : t.files.download}
                     </button>
 
                     <StartTranscriptionButton mediaAssetId={selectedFile.id} />
