@@ -3,11 +3,7 @@ import { useMemo, useState } from "react";
 import { useBillingOverviewQuery } from "@/shared/hooks/useBillingOverviewQuery";
 import { useUpgradePlanMutation } from "@/shared/hooks/useUpgradePlanMutation";
 import { useI18n } from "@/shared/i18n";
-import {
-  formatBytes,
-  formatHoursFromSeconds,
-  percentage,
-} from "@/shared/lib/format";
+import { formatBytes, formatHoursFromSeconds, percentage } from "@/shared/lib/format";
 import { toastSuccess } from "@/shared/ui/toast";
 
 const plans = [
@@ -54,10 +50,7 @@ function BillingUsageCard({
       </div>
 
       <div className="mt-5 h-2 rounded-full bg-slate-700">
-        <div
-          className="h-2 rounded-full bg-cyan-300"
-          style={{ width: `${pct}%` }}
-        />
+        <div className="h-2 rounded-full bg-cyan-300" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -68,8 +61,9 @@ export function BillingPage() {
   const { data } = useBillingOverviewQuery();
   const upgradeMutation = useUpgradePlanMutation();
 
-  const quota = (data as any)?.quota;
- const currentPlan = normalizePlanCode(data?.current_plan?.code);
+  const quota = data?.quota;
+  const currentPlan = normalizePlanCode(data?.current_plan?.code);
+
   const [selectedPlan, setSelectedPlan] = useState<PlanCode>(currentPlan);
   const [fakePaymentOpen, setFakePaymentOpen] = useState(false);
 
@@ -79,7 +73,7 @@ export function BillingPage() {
       pro: t.pricing.proFeatures,
       business: t.pricing.businessFeatures,
     }),
-    [t]
+    [t],
   );
 
   const descByCode = useMemo(
@@ -88,7 +82,7 @@ export function BillingPage() {
       pro: t.pricing.proDesc,
       business: t.pricing.businessDesc,
     }),
-    [t]
+    [t],
   );
 
   const titleByCode = useMemo(
@@ -97,7 +91,7 @@ export function BillingPage() {
       pro: t.pricing.proName,
       business: t.pricing.businessName,
     }),
-    [t]
+    [t],
   );
 
   async function handleFakePayment() {
@@ -105,7 +99,7 @@ export function BillingPage() {
 
     toastSuccess(
       t.common.success,
-      `${titleByCode[selectedPlan]}: ${t.billing.fakePaymentCompleted}`
+      `${titleByCode[selectedPlan]}: ${t.billing.fakePaymentCompleted}`,
     );
 
     setFakePaymentOpen(false);
@@ -136,16 +130,14 @@ export function BillingPage() {
 
           return (
             <button
-               key={plan.code}
-               type="button"
-               onClick={() => setSelectedPlan(plan.code)}
-               className={[
-                  "premium-card card-border-strong flex min-h-[430px] cursor-pointer flex-col justify-between p-8 text-left transition",
-                  "hover:border-cyan-300/80 hover:bg-cyan-300/[0.04]",
-                  selected
-                    ? "border-cyan-300 shadow-[0_0_0_1px_rgba(103,232,249,0.55)]"
-                    : "",
-               ].join(" ")}
+              key={plan.code}
+              type="button"
+              onClick={() => setSelectedPlan(plan.code)}
+              className={[
+                "premium-card card-border-strong flex min-h-[430px] cursor-pointer flex-col justify-between p-8 text-left transition",
+                "hover:border-cyan-300/80 hover:bg-cyan-300/[0.04]",
+                selected ? "border-cyan-300 shadow-[0_0_0_1px_rgba(103,232,249,0.55)]" : "",
+              ].join(" ")}
             >
               <div>
                 <div className="flex items-start justify-between gap-3">
@@ -187,9 +179,7 @@ export function BillingPage() {
               <div
                 className={[
                   "mt-8 rounded-2xl px-5 py-3 text-center text-sm font-semibold transition",
-                  selected
-                    ? "bg-cyan-300 text-slate-950"
-                    : "border border-slate-500 text-white",
+                  selected ? "bg-cyan-300 text-slate-950" : "border border-slate-500 text-white",
                 ].join(" ")}
               >
                 {selected ? t.common.ready : t.common.select}
@@ -228,7 +218,7 @@ export function BillingPage() {
           <BillingUsageCard
             label={t.profile.storage}
             value={`${formatBytes(quota.storage_bytes_used)} / ${formatBytes(
-              quota.storage_bytes_limit
+              quota.storage_bytes_limit,
             )}`}
             pct={percentage(quota.storage_bytes_used, quota.storage_bytes_limit)}
           />
@@ -236,11 +226,11 @@ export function BillingPage() {
           <BillingUsageCard
             label={t.profile.transcriptionTime}
             value={`${formatHoursFromSeconds(
-              quota.transcription_seconds_used
+              quota.transcription_seconds_used,
             )} / ${formatHoursFromSeconds(quota.transcription_seconds_limit)}`}
             pct={percentage(
               quota.transcription_seconds_used,
-              quota.transcription_seconds_limit
+              quota.transcription_seconds_limit,
             )}
           />
 

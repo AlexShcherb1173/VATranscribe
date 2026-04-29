@@ -4,11 +4,13 @@ import { useI18n } from "@/shared/i18n";
 
 type UploadDropzoneProps = {
   isBusy?: boolean;
+  compact?: boolean;
   onFilesSelected: (files: File[]) => void;
 };
 
 export function UploadDropzone({
   isBusy = false,
+  compact = false,
   onFilesSelected,
 }: UploadDropzoneProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -49,7 +51,8 @@ export function UploadDropzone({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={[
-        "rounded-2xl border-2 border-dashed p-8 text-center transition",
+        "rounded-2xl border-2 border-dashed text-center transition",
+        compact ? "p-5" : "p-8",
         isDragging
           ? "border-cyan-400 bg-cyan-500/10"
           : "border-slate-700 bg-slate-900/50",
@@ -65,15 +68,15 @@ export function UploadDropzone({
       />
 
       <div className="mx-auto max-w-2xl">
-        <div className="text-lg font-medium text-white">
+        <div className={compact ? "text-sm font-medium text-white" : "text-lg font-medium text-white"}>
           {t.uploads.dropTitle}
         </div>
 
-        <p className="mt-2 text-sm text-slate-400">
-          {t.uploads.supported}
-        </p>
+        {!compact ? (
+          <p className="mt-2 text-sm text-slate-400">{t.uploads.supported}</p>
+        ) : null}
 
-        <div className="mt-5">
+        <div className="mt-4">
           <button
             type="button"
             onClick={openFileDialog}

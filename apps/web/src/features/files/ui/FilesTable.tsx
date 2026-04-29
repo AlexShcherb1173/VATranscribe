@@ -1,13 +1,15 @@
 import type { MediaFile } from "@/entities/media-file/model/types";
+import { StartTranscriptionButton } from "@/features/files/ui/StartTranscriptionButton";
 import { formatDateTime } from "@/shared/lib/utils";
 import { Card } from "@/shared/ui/Card";
 import { EmptyState } from "@/shared/ui/EmptyState";
-import { StartTranscriptionButton } from "@/features/files/ui/StartTranscriptionButton";
 
 type FilesTableProps = {
   files: MediaFile[];
   selectedFileId: string | null;
+  downloadingFileId?: string | null;
   onSelectFile: (fileId: string) => void;
+  onDownloadFile: (file: MediaFile) => void;
 };
 
 function formatBytes(value: number): string {
@@ -27,29 +29,18 @@ function formatBytes(value: number): string {
   return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
 
-function getDownloadHref(file: MediaFile): string {
-  if (file.download_url && file.download_url.trim().length > 0) {
-    return `http://localhost:8000${file.download_url}`;
-  }
-
-  if (file.path && file.path.trim().length > 0) {
-    const normalized = file.path.replace(/\\/g, "/");
-    return `http://localhost:8000/${normalized}`;
-  }
-
-  return "#";
-}
-
 export function FilesTable({
   files,
   selectedFileId,
+  downloadingFileId = null,
   onSelectFile,
+  onDownloadFile,
 }: FilesTableProps) {
   if (!files.length) {
     return (
       <EmptyState
         title="No media files yet"
-        description="Downloaded media assets will appear here after download jobs succeed."
+        description="Downloaded and uploaded media assets will appear here."
       />
     );
   }
@@ -72,8 +63,8 @@ export function FilesTable({
           <tbody>
             {files.map((file) => {
               const isSelected = selectedFileId === file.id;
-              const href = getDownloadHref(file);
-              const disabled = href === "#";
+              const isDownloading = downloadingFileId === file.id;
+              const canDownload = Boolean(file.download_url);
 
               return (
                 <tr
@@ -95,21 +86,22 @@ export function FilesTable({
                   </td>
                   <td className="px-4 py-3">{formatDateTime(file.created_at)}</td>
                   <td className="px-4 py-3">
-                    <a
-                      href={href}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-disabled={disabled}
-                      onClick={(event) => event.stopPropagation()}
+                    <button
+                      type="button"
+                      disabled={!canDownload || isDownloading}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onDownloadFile(file);
+                      }}
                       className={[
                         "rounded-xl px-3 py-2 text-xs font-medium transition",
-                        disabled
-                          ? "pointer-events-none cursor-not-allowed bg-slate-800 text-slate-500"
+                        !canDownload || isDownloading
+                          ? "cursor-not-allowed bg-slate-800 text-slate-500"
                           : "bg-cyan-500 text-slate-950 hover:bg-cyan-400",
                       ].join(" ")}
                     >
-                      Download
-                    </a>
+                      {isDownloading ? "Downloading..." : "Download"}
+                    </button>
                   </td>
                   <td className="px-4 py-3">
                     <div onClick={(event) => event.stopPropagation()}>

@@ -1,63 +1,36 @@
-
----
-
-# 3. `.gitignore`
-
-```gitignore
 # Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-.python-version
-
-# Virtual environments
 .venv/
-venv/
-env/
-
-# Tool caches
+__pycache__/
+*.pyc
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .coverage
 htmlcov/
 
-# Build artifacts
+# Node
+node_modules/
 dist/
-build/
-*.egg-info/
+.turbo/
+.vite/
 
-# IDE / OS
+# Env
+.env
+.env.local
+.env.*.local
+
+# Storage
+storage/uploads/
+storage/downloads/
+storage/tmp/
+storage/temp/
+storage/logs/
+storage/transcripts/
+
+# IDE
 .idea/
 .vscode/
 .DS_Store
-Thumbs.db
 
-# Environment
-.env
-
-# Alembic generated files cache
-alembic/__pycache__/
-
-# Storage runtime files
-storage/downloads/audio/*
-storage/downloads/video/*
-storage/uploads/*
-storage/temp/*
-storage/transcripts/txt/*
-storage/transcripts/srt/*
-storage/transcripts/vtt/*
-storage/transcripts/json/*
-storage/logs/*
-
-# Keep folder placeholders
-!storage/downloads/audio/.gitkeep
-!storage/downloads/video/.gitkeep
-!storage/uploads/.gitkeep
-!storage/temp/.gitkeep
-!storage/transcripts/txt/.gitkeep
-!storage/transcripts/srt/.gitkeep
-!storage/transcripts/vtt/.gitkeep
-!storage/transcripts/json/.gitkeep
-!storage/logs/.gitkeep
+# Docker
+*.log

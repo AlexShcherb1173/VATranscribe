@@ -5,7 +5,7 @@ services:
       dockerfile: infra/docker/api.Dockerfile
     container_name: vatranscribe-api
     working_dir: /app
-    command: uvicorn apps.api.app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn apps.api.app.main:app --host 0.0.0.0 --port 8000
     volumes:
       - ./:/app
     env_file:
@@ -31,7 +31,7 @@ services:
       dockerfile: infra/docker/worker.Dockerfile
     container_name: vatranscribe-worker
     working_dir: /app
-    command: celery -A apps.worker.app.worker:celery worker --loglevel=info
+    command: celery -A apps.worker.app.worker:celery worker --loglevel=info --pool=solo --concurrency=1
     volumes:
       - ./:/app
     env_file:

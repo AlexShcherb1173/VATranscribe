@@ -14,10 +14,12 @@ import { ResultPage } from "@/pages/result/ResultPage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { TranscriptionsPage } from "@/pages/transcriptions/TranscriptionsPage";
 import { UpgradePage } from "@/pages/upgrade/UpgradePage";
+import { PricingPage } from "@/pages/pricing/PricingPage";
 
 export const router = createBrowserRouter([
   { path: "/", element: <LandingPage /> },
   { path: "/auth", element: <AuthPage /> },
+  { path: "/pricing", element: <PricingPage />},
   {
     element: <ProtectedRoute />,
     children: [
@@ -35,6 +37,7 @@ export const router = createBrowserRouter([
           { path: "billing", element: <BillingPage /> },
           { path: "upgrade", element: <UpgradePage /> },
           { path: "settings", element: <SettingsPage /> },
+
         ],
       },
     ],

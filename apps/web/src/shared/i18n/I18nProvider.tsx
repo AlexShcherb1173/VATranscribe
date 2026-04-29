@@ -2,22 +2,6 @@ import { createContext, ReactNode, useContext, useMemo, useState } from "react";
 
 type Language = "en" | "ru";
 
-type DeepStringify<T> = {
-  readonly [K in keyof T]: T[K] extends readonly string[]
-    ? readonly string[]
-    : T[K] extends object
-      ? DeepStringify<T[K]>
-      : string;
-};
-
-type Dictionary = DeepStringify<typeof dictionaries.en>;
-
-type I18nContextValue = {
-  language: Language;
-  setLanguage: (language: Language) => void;
-  t: Dictionary;
-};
-
 const dictionaries = {
   en: {
     nav: {
@@ -26,7 +10,7 @@ const dictionaries = {
       files: "Files",
       jobs: "Jobs",
       transcripts: "Transcripts",
-      billing: "Billing",
+      billing: "Pricing",
       profile: "Profile",
       settings: "Settings",
       upgrade: "Upgrade",
@@ -45,7 +29,7 @@ const dictionaries = {
       uploadFile: "Upload file",
       pasteLink: "Paste link",
       upgrade: "Upgrade",
-      upgradeToPro: "Upgrade to Pro",
+      upgradeToPro: "Go to subscriptions",
       processing: "Processing",
       ready: "Ready",
       failed: "Failed",
@@ -109,10 +93,8 @@ const dictionaries = {
       emailRequired: "Email is required.",
       passwordRequired: "Password is required.",
       passwordMin: "Password must contain at least 8 characters.",
-      passwordLower:
-        "Password must contain at least one lowercase letter.",
-      passwordUpper:
-        "Password must contain at least one uppercase letter.",
+      passwordLower: "Password must contain at least one lowercase letter.",
+      passwordUpper: "Password must contain at least one uppercase letter.",
       passwordDigit: "Password must contain at least one digit.",
       passwordSpaces: "Password must not contain spaces.",
       passwordMismatch: "Passwords do not match.",
@@ -128,24 +110,19 @@ const dictionaries = {
       headline: "Turn audio & video into content in minutes",
       subhead:
         "Upload a file or paste a link. Get transcripts, subtitles, summaries and ready-to-publish content from one workflow.",
-      urlPlaceholder:
-        "Paste YouTube, Kinescope or podcast URL...",
+      urlPlaceholder: "Paste YouTube, Kinescope or podcast URL...",
       primary: "Start free",
       secondary: "See pricing",
       login: "Login",
-      proof:
-        "Transcript · Subtitles · Content ideas · Exports",
+      proof: "Transcript · Subtitles · Content ideas · Exports",
       creator: "For creators",
-      creatorText:
-        "Turn one video into 10 pieces of content.",
+      creatorText: "Turn one video into 10 pieces of content.",
       agency: "For freelancers",
-      agencyText:
-        "Turn client calls into action plans.",
+      agencyText: "Turn client calls into action plans.",
       education: "For education",
-      educationText:
-        "Turn lectures into notes instantly.",
+      educationText: "Turn lectures into notes instantly.",
       magicFlow: "Magic flow",
-      contentPack: "YouTube → Content Pack",
+      contentPack: "Content pack for your video",
       checks: [
         "Transcript generated",
         "Subtitles created",
@@ -160,8 +137,7 @@ const dictionaries = {
       title: "What do you want to process today?",
       description:
         "Start with a file or a link. VATranscribe turns raw media into transcript, subtitles and content deliverables.",
-      urlPlaceholder:
-        "Paste YouTube / Kinescope / Vimeo URL...",
+      urlPlaceholder: "Paste YouTube / Kinescope / Vimeo URL...",
       recentResults: "Recent results",
       usage: "Usage this period",
       plan: "Current plan",
@@ -169,8 +145,7 @@ const dictionaries = {
         "You are close to your free limits. Upgrade to keep processing without interruption.",
       empty:
         "No results yet. Upload a file or paste a link to create your first transcript.",
-      magicFlow:
-        "Paste link → processing → transcript → subtitles → content pack",
+      magicFlow: "Paste link → processing → transcript → subtitles → content pack",
       quickActions: "Quick actions",
       stats: "Statistics",
       totalMinutes: "Total minutes",
@@ -198,8 +173,7 @@ const dictionaries = {
       duration: "Duration",
       formats: "Formats",
       createTitle: "Create download job",
-      createText:
-        "Choose output mode and send the download to the background worker.",
+      createText: "Choose output mode and send the download to the background worker.",
       sourceUrl: "Source URL",
       outputFilename: "Output filename",
       requestedFormat: "Requested format",
@@ -263,7 +237,6 @@ const dictionaries = {
       plan: "Plan",
       quota: "Quota",
       memberSince: "Member since",
-
       currentPlan: "Current plan",
       active: "Active",
       storageLimit: "Storage limit",
@@ -273,20 +246,18 @@ const dictionaries = {
       transcriptionSeconds: "Transcription seconds",
       jobs: "Jobs",
       accountSummary: "Account summary",
-     fullName: "Full name",
-     company: "Company",
-     timezone: "Timezone",
-     locale: "Locale",
-     role: "Role",
-     user: "User",
-     profileSettings: "Profile settings",
-     profileSettingsDescription:
-       "Update account metadata used by the operator interface.",
-     avatarUrl: "Avatar URL",
-     saveChanges: "Save changes",
-     updated: "Updated",
-     used: "used",
-     of: "of",
+      fullName: "Full name",
+      company: "Company",
+      timezone: "Timezone",
+      locale: "Locale",
+      role: "Role",
+      user: "User",
+      profileSettings: "Profile settings",
+      profileSettingsDescription:
+        "Update account metadata used by the operator interface.",
+      avatarUrl: "Avatar URL",
+      used: "used",
+      of: "of",
     },
 
     settings: {
@@ -303,45 +274,32 @@ const dictionaries = {
 
     result: {
       title: "Result workspace",
+      readyTitle: "Transcript ready",
+      notFound: "Result not found",
+      backToTranscripts: "Back to transcripts",
+      downloadArtifact: "Download artifact",
+      subscription: "Subscription",
+      subscriptionCta:
+        "Need AI summary, subtitles and extended export? Go to subscriptions.",
       transcript: "Transcript",
       summary: "Summary",
       subtitles: "Subtitles",
       contentIdeas: "Content ideas",
       export: "Export",
-      locked: "Pro feature",
+      locked: "Subscription feature",
       upgradeCta:
-        "Want AI summary, subtitles and content repurposing? Upgrade to Pro.",
+        "Need AI summary, subtitles and content repurposing? Go to subscriptions.",
     },
 
     pricing: {
       title: "Upgrade when the result is useful",
-      subtitle:
-        "Simple internal plans now. Payment provider can be connected next.",
-      freeDesc:
-        "Try it with basic transcript workflow.",
-      proDesc:
-        "Best for creators and freelancers.",
-      businessDesc:
-        "Teams, priority queue and future API access.",
-      freeFeatures: [
-        "30 min / month",
-        "Basic transcript",
-        "TXT export",
-      ],
-
-      proFeatures: [
-        "100 hours",
-        "Summaries",
-        "Subtitles",
-        "Content repurposing",
-      ],
-
-      businessFeatures: [
-        "Team workspace",
-        "Shared folders",
-        "Priority queue",
-        "API-ready",
-      ],
+      subtitle: "Simple internal plans now. Payment provider can be connected next.",
+      freeDesc: "Try it with basic transcript workflow.",
+      proDesc: "Best for creators and freelancers.",
+      businessDesc: "Teams, priority queue and future API access.",
+      freeFeatures: ["30 min / month", "Basic transcript", "TXT export"],
+      proFeatures: ["100 hours", "Summaries", "Subtitles", "Content repurposing"],
+      businessFeatures: ["Team workspace", "Shared folders", "Priority queue", "API-ready"],
       billingLabel: "Billing",
       currentPlan: "Current plan",
       subscriptionStatus: "Subscription status",
@@ -357,18 +315,17 @@ const dictionaries = {
     },
 
     billing: {
-       selectedPlan: "Selected plan",
-       fakePayment: "Fake payment",
-       fakePaymentDescription:
-         "This is a temporary payment form placeholder. Later it can be connected to Stripe, YooKassa or CloudPayments.",
-       fakePaymentCompleted: "fake payment completed",
+      selectedPlan: "Selected plan",
+      fakePayment: "Fake payment",
+      fakePaymentDescription:
+        "This is a temporary payment form placeholder. Later it can be connected to Stripe, YooKassa or CloudPayments.",
+      fakePaymentCompleted: "fake payment completed",
     },
 
     uploads: {
       fastPath: "Fast path",
-      dropTitle: "Drag & drop local media files",
-      supported:
-        "Supported: MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, MKV, WEBM, AVI",
+      dropTitle: "Drag & drop media files here",
+      supported: "MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, MKV, WEBM, AVI",
       chooseFiles: "Choose files",
       uploading: "Uploading...",
       summary: "Upload summary",
@@ -376,9 +333,17 @@ const dictionaries = {
       uploadingLabel: "Uploading",
       failed: "Failed",
       queueTitle: "Upload queue",
-      queueEmptyTitle: "Upload queue is empty",
-      queueEmptyDescription:
-        "Selected files will appear here with progress and upload status.",
+      queueEmptyTitle: "Queue is empty",
+      queueEmptyDescription: "Files will appear here after selection.",
+      uploadStartedTitle: "Upload started",
+      uploadStartedDescription: "file(s) added to queue.",
+      uploadCompletedTitle: "Upload completed",
+      uploadCompletedDescription: "ready for transcription.",
+      uploadFailedTitle: "Upload failed",
+      workWithFile: "Work with file",
+      transcribe: "Transcribe",
+      mediaAssetId: "Media asset ID",
+      progressComplete: "100%",
     },
   },
 
@@ -392,7 +357,7 @@ const dictionaries = {
       billing: "Тарифы",
       profile: "Профиль",
       settings: "Настройки",
-      upgrade: "Апгрейд",
+      upgrade: "Тарифы",
       analytics: "Аналитика",
       workspace: "Рабочая зона",
       support: "Поддержка",
@@ -407,8 +372,8 @@ const dictionaries = {
       startFree: "Начать бесплатно",
       uploadFile: "Загрузить файл",
       pasteLink: "Вставить ссылку",
-      upgrade: "Апгрейд",
-      upgradeToPro: "Перейти на Pro",
+      upgrade: "Тарифы",
+      upgradeToPro: "Перейти к подпискам",
       processing: "Обработка",
       ready: "Готово",
       failed: "Ошибка",
@@ -454,8 +419,7 @@ const dictionaries = {
 
     auth: {
       checking: "Проверяем сессию...",
-      heroTitle:
-        "Одна загрузка. Транскрипт, субтитры и контент-пакет.",
+      heroTitle: "Одна загрузка. Транскрипт, субтитры и контент-пакет.",
       heroText:
         "Для creators, фрилансеров и команд, которым нужен готовый результат.",
       bullets: [
@@ -463,7 +427,7 @@ const dictionaries = {
         "Загрузи файл → субтитры",
         "Текст → сводка + посты",
       ],
-      signIn: "Вход",
+      signIn: "Войти",
       createAccount: "Создать аккаунт",
       login: "Войти",
       register: "Регистрация",
@@ -472,52 +436,37 @@ const dictionaries = {
       confirmPassword: "Повторите пароль",
       emailRequired: "Укажите email.",
       passwordRequired: "Укажите пароль.",
-      passwordMin:
-        "Пароль должен содержать минимум 8 символов.",
-      passwordLower:
-        "Пароль должен содержать строчную букву.",
-      passwordUpper:
-        "Пароль должен содержать заглавную букву.",
-      passwordDigit:
-        "Пароль должен содержать цифру.",
-      passwordSpaces:
-        "Пароль не должен содержать пробелы.",
-      passwordMismatch:
-        "Пароли не совпадают.",
+      passwordMin: "Пароль должен содержать минимум 8 символов.",
+      passwordLower: "Пароль должен содержать строчную букву.",
+      passwordUpper: "Пароль должен содержать заглавную букву.",
+      passwordDigit: "Пароль должен содержать цифру.",
+      passwordSpaces: "Пароль не должен содержать пробелы.",
+      passwordMismatch: "Пароли не совпадают.",
       passwordHint:
-        "Минимум 8 символов: строчная, заглавная буква, цифра.",
+        "Минимум 8 символов: строчная, заглавная буква, цифра, без пробелов.",
       creating: "Создаём аккаунт...",
       signingIn: "Входим...",
-      created:
-        "Аккаунт создан. Теперь можно войти.",
+      created: "Аккаунт создан. Теперь можно войти.",
     },
 
     landing: {
-      badge:
-        "Рабочее пространство для транскрибации",
-      headline:
-        "Превращай аудио и видео в контент за минуты",
+      badge: "Рабочее пространство для транскрибации",
+      headline: "Превращай аудио и видео в контент за минуты",
       subhead:
         "Загрузи файл или вставь ссылку. Получи транскрипт, субтитры, summary и материалы для публикации.",
-      urlPlaceholder:
-        "Вставь ссылку YouTube, Kinescope или подкаста...",
+      urlPlaceholder: "Вставь ссылку YouTube, Kinescope или подкаста...",
       primary: "Начать бесплатно",
       secondary: "Тарифы",
       login: "Войти",
-      proof:
-        "Транскрипт · Субтитры · Идеи контента · Экспорт",
+      proof: "Транскрипт · Субтитры · Идеи контента · Экспорт",
       creator: "Для creators",
-      creatorText:
-        "Одно видео → 10 единиц контента.",
+      creatorText: "Одно видео → 10 единиц контента.",
       agency: "Для фрилансеров",
-      agencyText:
-        "Созвоны с клиентами → план действий",
+      agencyText: "Созвоны с клиентами → план действий",
       education: "Для обучения",
-      educationText:
-        "Лекции → конспекты.",
+      educationText: "Лекции → конспекты.",
       magicFlow: "Волшебный поток",
-      contentPack:
-        "Пакет контента для YouTube",
+      contentPack: "Пакет контента для вашего видео",
       checks: [
         "Транскрипт готов",
         "Субтитры готовы",
@@ -531,18 +480,14 @@ const dictionaries = {
       eyebrow: "Центр управления",
       title: "Что обработаем сегодня?",
       description:
-        "Начни с файла или ссылки. VATranscribe превращает медиа в текст, субтитры и deliverables.",
-      urlPlaceholder:
-        "Вставь ссылку YouTube / Kinescope / Vimeo...",
+        "Начни с файла или ссылки. VATranscribe превращает медиа в текст, субтитры и контент.",
+      urlPlaceholder: "Вставь YouTube / Kinescope / Vimeo ссылку...",
       recentResults: "Последние результаты",
       usage: "Использование",
       plan: "Текущий тариф",
-      almostOut:
-        "Лимиты почти закончились. Перейди на Pro.",
-      empty:
-        "Пока нет результатов. Загрузи файл или вставь ссылку.",
-      magicFlow:
-        "Ссылка → обработка → текст → субтитры → контент",
+      almostOut: "Лимиты почти закончились.",
+      empty: "Пока нет результатов. Загрузи файл или вставь ссылку.",
+      magicFlow: "Ссылка → обработка → текст → субтитры → контент",
       quickActions: "Быстрые действия",
       stats: "Статистика",
       totalMinutes: "Минут обработано",
@@ -552,36 +497,28 @@ const dictionaries = {
 
     downloads: {
       title: "Скачивание",
-      description:
-        "Анализируй ссылки, выбирай форматы и ставь MP3/MP4 в очередь.",
+      description: "Анализируй ссылки и создавай MP3/MP4 задачи.",
       analyzeTitle: "Анализ ссылки",
-      analyzeText:
-        "Вставь ссылку и посмотри доступные форматы.",
+      analyzeText: "Вставь ссылку и посмотри доступные форматы.",
       analyzing: "Анализируем...",
       analyze: "Анализировать",
-      failedAnalyze:
-        "Не удалось проанализировать ссылку.",
-      failedCreate:
-        "Не удалось создать задачу.",
+      failedAnalyze: "Не удалось проанализировать ссылку.",
+      failedCreate: "Не удалось создать задачу.",
       created: "Задача создана",
       waitingTitle: "Ожидаем анализ",
-      waitingText:
-        "Сначала запусти анализ ссылки.",
+      waitingText: "Сначала проанализируй ссылку.",
       titleLabel: "Название",
       platform: "Платформа",
       duration: "Длительность",
       formats: "Форматы",
       createTitle: "Создать задачу",
-      createText:
-        "Выбери режим и отправь задачу в очередь.",
+      createText: "Выбери режим и отправь задачу в очередь.",
       sourceUrl: "Ссылка",
       outputFilename: "Имя файла",
       requestedFormat: "Формат",
       mp4Mode: "MP4 режим",
-      selectedAudio:
-        "Выбранный аудио формат",
-      selectedVideo:
-        "Выбранный видео формат",
+      selectedAudio: "Выбранный аудио формат",
+      selectedVideo: "Выбранный видео формат",
       auto: "auto",
       notRequired: "не требуется",
       creating: "Создаём...",
@@ -590,46 +527,36 @@ const dictionaries = {
 
     files: {
       title: "Файлы",
-      description:
-        "Загружай локальные файлы и запускай транскрибацию.",
+      description: "Загружай локальные файлы и запускай транскрибацию.",
       loading: "Загружаем файлы...",
       selected: "Выбранный файл",
       name: "Имя",
       kind: "Тип",
       id: "ID файла",
       download: "Скачать",
-      helper:
-        "Выбери файл и нажми Transcribe.",
+      helper: "Выбери файл и нажми «Транскрибировать».",
       transcribe: "Транскрибировать",
       remove: "Удалить",
     },
 
     jobs: {
       title: "Задачи",
-      description:
-        "Отслеживай фоновые задачи.",
+      description: "Отслеживай фоновые задачи.",
       loading: "Загружаем задачи...",
-      loadingDetails:
-        "Загружаем детали задачи...",
-      loadingLogs:
-        "Загружаем логи...",
+      loadingDetails: "Загружаем детали задачи...",
+      loadingLogs: "Загружаем логи...",
       actions: "Действия",
-      select:
-        "Выбери задачу для просмотра.",
+      select: "Выбери задачу для просмотра.",
       restart: "Перезапустить",
       stop: "Остановить",
     },
 
     transcriptions: {
       title: "Транскрипты",
-      description:
-        "Результаты транскрибации и экспорт.",
-      loading:
-        "Загружаем транскрипты...",
-      loadingDetails:
-        "Загружаем детали...",
-      select:
-        "Выбери транскрипт.",
+      description: "Результаты транскрибации и экспорт.",
+      loading: "Загружаем транскрипты...",
+      loadingDetails: "Загружаем детали...",
+      select: "Выбери транскрипт.",
       copy: "Копировать текст",
       exportTxt: "Экспорт TXT",
       exportSrt: "Экспорт SRT",
@@ -645,7 +572,6 @@ const dictionaries = {
       plan: "Тариф",
       quota: "Лимит",
       memberSince: "Дата регистрации",
-
       currentPlan: "Текущий тариф",
       active: "Активен",
       storageLimit: "Лимит хранилища",
@@ -665,67 +591,48 @@ const dictionaries = {
       profileSettingsDescription:
         "Обнови данные аккаунта, которые используются в интерфейсе.",
       avatarUrl: "URL аватара",
-      saveChanges: "Сохранить изменения",
-      updated: "Обновлено",
       used: "использовано",
       of: "из",
     },
 
     settings: {
       title: "Настройки",
-      description:
-        "Конфигурация системы и предпочтения.",
+      description: "Конфигурация системы и предпочтения.",
       next: "Следующий шаг",
-      text:
-        "Здесь будут пользовательские настройки.",
+      text: "Здесь будут пользовательские настройки.",
       appearance: "Внешний вид",
       notifications: "Уведомления",
       integrations: "Интеграции",
     },
 
     result: {
-      title:
-        "Рабочая область результата",
+      title: "Рабочая область результата",
+      readyTitle: "Транскрипт готов",
+      notFound: "Результат не найден",
+      backToTranscripts: "Назад к транскриптам",
+      downloadArtifact: "Скачать файл",
+      subscription: "Подписка",
+      subscriptionCta:
+        "Нужны AI summary, субтитры и расширенный экспорт? Перейди к подпискам.",
       transcript: "Транскрипт",
-      summary: "Summary",
+      summary: "Сводка",
       subtitles: "Субтитры",
-      contentIdeas:
-        "Идеи контента",
+      contentIdeas: "Идеи контента",
       export: "Экспорт",
-      locked: "Pro-функция",
+      locked: "Функция по подписке",
       upgradeCta:
-        "Нужны AI summary и субтитры? Перейди на Pro.",
+        "Нужны AI summary, субтитры и переработка контента? Перейди к подпискам.",
     },
 
     pricing: {
-      title:
-        "Переходи на Pro когда увидишь ценность",
-      subtitle:
-        "Платежи можно подключить следующим этапом.",
-      freeDesc:
-        "Базовая транскрибация.",
-      proDesc:
-        "Для creators и фрилансеров.",
-      businessDesc:
-        "Для команд.",
-      freeFeatures: [
-        "30 мин / месяц",
-        "Базовый текст",
-        "TXT экспорт",
-      ],
-
-      proFeatures: [
-        "100 часов",
-        "Сводка",
-        "Субтитры",
-        "Переработка контента",
-      ],
-      businessFeatures: [
-        "Команда",
-        "Общие папки",
-        "Приоритет",
-        "API-совместимый",
-      ],
+      title: "Переходи на Pro когда увидишь ценность",
+      subtitle: "Платежи можно подключить следующим этапом.",
+      freeDesc: "Базовая транскрибация.",
+      proDesc: "Для creators и фрилансеров.",
+      businessDesc: "Для команд.",
+      freeFeatures: ["30 мин / месяц", "Базовый текст", "TXT экспорт"],
+      proFeatures: ["100 часов", "Сводка", "Субтитры", "Переработка контента"],
+      businessFeatures: ["Команда", "Общие папки", "Приоритет", "API-совместимый"],
       billingLabel: "Тарифы",
       currentPlan: "Текущий тариф",
       subscriptionStatus: "Статус подписки",
@@ -744,37 +651,51 @@ const dictionaries = {
       selectedPlan: "Выбранный тариф",
       fakePayment: "Тестовая оплата",
       fakePaymentDescription:
-         "Сейчас это временная заглушка платежной формы. Позже сюда можно подключить Stripe, YooKassa или CloudPayments.",
+        "Сейчас это временная заглушка платежной формы. Позже сюда можно подключить Stripe, YooKassa или CloudPayments.",
       fakePaymentCompleted: "тестовая оплата выполнена",
     },
 
     uploads: {
       fastPath: "Быстрый путь",
-      dropTitle:
-        "Перетащи медиафайлы сюда",
-      supported:
-        "MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, MKV, WEBM, AVI",
-      chooseFiles:
-        "Выбрать файлы",
-      uploading:
-        "Загружаем...",
-      summary:
-        "Сводка загрузки",
-      succeeded:
-        "Успешно",
-      uploadingLabel:
-        "Загружается",
-      failed:
-        "Ошибки",
-      queueTitle:
-        "Очередь загрузки",
-      queueEmptyTitle:
-        "Очередь пуста",
-      queueEmptyDescription:
-        "Файлы появятся здесь после выбора.",
+      dropTitle: "Перетащи медиафайлы сюда",
+      supported: "MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, MKV, WEBM, AVI",
+      chooseFiles: "Выбрать файлы",
+      uploading: "Загружаем...",
+      summary: "Сводка загрузки",
+      succeeded: "Успешно",
+      uploadingLabel: "Загружается",
+      failed: "Ошибки",
+      queueTitle: "Очередь загрузки",
+      queueEmptyTitle: "Очередь пуста",
+      queueEmptyDescription: "Файлы появятся здесь после выбора.",
+      uploadStartedTitle: "Загрузка началась",
+      uploadStartedDescription: "файл(ов) добавлено в очередь.",
+      uploadCompletedTitle: "Файл загружен",
+      uploadCompletedDescription: "готов к транскрибации.",
+      uploadFailedTitle: "Ошибка загрузки",
+      workWithFile: "Работать с файлом",
+      transcribe: "Транскрибировать",
+      mediaAssetId: "ID медиафайла",
+      progressComplete: "100%",
     },
   },
 } as const;
+
+type DeepStringify<T> = {
+  readonly [K in keyof T]: T[K] extends readonly string[]
+    ? readonly string[]
+    : T[K] extends object
+      ? DeepStringify<T[K]>
+      : string;
+};
+
+type Dictionary = DeepStringify<(typeof dictionaries)["en"]>;
+
+type I18nContextValue = {
+  language: Language;
+  setLanguage: (language: Language) => void;
+  t: Dictionary;
+};
 
 const I18nContext = createContext<I18nContextValue | null>(null);
 
@@ -797,13 +718,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo<I18nContextValue>(
-     () => ({
-       language,
-       setLanguage,
-       t: dictionaries[language] as Dictionary,
-     }),
-     [language]
-);
+    () => ({
+      language,
+      setLanguage,
+      t: dictionaries[language] as Dictionary,
+    }),
+    [language],
+  );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }

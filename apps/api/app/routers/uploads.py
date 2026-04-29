@@ -17,7 +17,6 @@ from apps.api.app.services.quota_service import (
 from apps.api.app.services.upload_helpers import (
     build_upload_dir,
     detect_kind,
-    generate_stored_name,
     guess_mime_type,
     safe_file_name,
     save_upload_file,
@@ -41,6 +40,21 @@ def build_media_asset_response(item: MediaAsset) -> MediaAssetResponse:
         created_at=item.created_at,
         download_url=f"/api/v1/media-assets/{item.id}/download",
     )
+
+
+def build_unique_stored_name(upload_dir: Path, original_name: str) -> str:
+    safe_name = safe_file_name(original_name)
+    stem = Path(safe_name).stem
+    suffix = Path(safe_name).suffix
+
+    candidate = safe_name
+    counter = 1
+
+    while (upload_dir / candidate).exists():
+        candidate = f"{stem} ({counter}){suffix}"
+        counter += 1
+
+    return candidate
 
 
 @router.post(
@@ -81,7 +95,9 @@ async def upload_media_file(
         assert_can_store_bytes(db, current_user, int(file.size))
 
     upload_dir = build_upload_dir(kind)
-    stored_name = generate_stored_name(original_name)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    stored_name = build_unique_stored_name(upload_dir, original_name)
     target_path = upload_dir / stored_name
 
     size_bytes, checksum = await save_upload_file(file, target_path)

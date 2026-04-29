@@ -1,20 +1,38 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
+import type { MediaFile } from "@/entities/media-file/model/types";
+import { StartTranscriptionButton } from "@/features/files/ui/StartTranscriptionButton";
+import { FilesTable } from "@/features/files/ui/FilesTable";
+import { downloadMediaFile, saveBlob } from "@/shared/api/files";
 import { useMediaFilesQuery } from "@/shared/hooks/useMediaFilesQuery";
+import { useI18n } from "@/shared/i18n";
+import { extractErrorMessage } from "@/shared/lib/auth-errors";
+import { Card } from "@/shared/ui/Card";
 import { PageHeader } from "@/shared/ui/PageHeader";
 import { Spinner } from "@/shared/ui/Spinner";
-import { FilesTable } from "@/features/files/ui/FilesTable";
-import { Card } from "@/shared/ui/Card";
+import { toastError } from "@/shared/ui/toast";
 import { UploaderPanel } from "@/widgets/uploader/UploaderPanel";
-import { useI18n } from "@/shared/i18n";
-import { apiOrigin } from "@/shared/config/env";
 
 export function FilesPage() {
   const { t } = useI18n();
-  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(
+    searchParams.get("fileId"),
+  );
+  const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
 
   const { data, isLoading } = useMediaFilesQuery();
   const files = data ?? [];
+
+  useEffect(() => {
+    const fileIdFromUrl = searchParams.get("fileId");
+
+    if (fileIdFromUrl && fileIdFromUrl !== selectedFileId) {
+      setSelectedFileId(fileIdFromUrl);
+    }
+  }, [searchParams, selectedFileId]);
 
   useEffect(() => {
     if (!files.length) {
@@ -23,17 +41,40 @@ export function FilesPage() {
     }
 
     if (!selectedFileId) {
-      setSelectedFileId(files[0].id);
+      setSelectedFile(files[0].id);
       return;
     }
 
     const exists = files.some((file) => file.id === selectedFileId);
+
     if (!exists) {
-      setSelectedFileId(files[0].id);
+      setSelectedFile(files[0].id);
     }
   }, [files, selectedFileId]);
 
   const selectedFile = files.find((file) => file.id === selectedFileId) ?? null;
+
+  function setSelectedFile(fileId: string) {
+    setSelectedFileId(fileId);
+    setSearchParams({ fileId });
+  }
+
+  async function handleDownloadFile(file: MediaFile) {
+    if (!file.download_url || downloadingFileId) {
+      return;
+    }
+
+    setDownloadingFileId(file.id);
+
+    try {
+      const blob = await downloadMediaFile(file.id);
+      saveBlob(blob, file.stored_name || file.original_name || `media-${file.id}`);
+    } catch (error: any) {
+      toastError(t.common.failed, extractErrorMessage(error));
+    } finally {
+      setDownloadingFileId(null);
+    }
+  }
 
   return (
     <div>
@@ -52,7 +93,9 @@ export function FilesPage() {
             <FilesTable
               files={files}
               selectedFileId={selectedFileId}
-              onSelectFile={setSelectedFileId}
+              downloadingFileId={downloadingFileId}
+              onSelectFile={setSelectedFile}
+              onDownloadFile={handleDownloadFile}
             />
 
             <Card className="p-5">
@@ -61,33 +104,37 @@ export function FilesPage() {
               </div>
 
               {selectedFile ? (
-                <div className="space-y-2 text-sm text-slate-300">
-                  <div>
-                    <span className="text-slate-500">{t.files.name}:</span>{" "}
-                    {selectedFile.stored_name}
+                <div className="space-y-4 text-sm text-slate-300">
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-slate-500">{t.files.name}:</span>{" "}
+                      {selectedFile.stored_name || selectedFile.original_name}
+                    </div>
+
+                    <div>
+                      <span className="text-slate-500">{t.files.kind}:</span>{" "}
+                      {selectedFile.kind}
+                    </div>
+
+                    <div>
+                      <span className="text-slate-500">{t.files.id}:</span>{" "}
+                      {selectedFile.id}
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-slate-500">{t.files.kind}:</span>{" "}
-                    {selectedFile.kind}
-                  </div>
-                  <div>
-                    <span className="text-slate-500">{t.files.id}:</span>{" "}
-                    {selectedFile.id}
-                  </div>
-                  <div>
-                    <span className="text-slate-500">{t.files.download}:</span>{" "}
-                    {selectedFile.download_url ? (
-                      <a
-                        href={`${apiOrigin}${selectedFile.download_url}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-cyan-300 hover:text-cyan-200"
-                      >
-                        {t.common.openFile}
-                      </a>
-                    ) : (
-                      t.common.unavailable
-                    )}
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={!selectedFile.download_url || downloadingFileId === selectedFile.id}
+                      onClick={() => handleDownloadFile(selectedFile)}
+                      className="rounded-xl bg-cyan-500 px-3 py-2 text-xs font-medium text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
+                    >
+                      {downloadingFileId === selectedFile.id
+                        ? t.downloads.creating
+                        : t.files.download}
+                    </button>
+
+                    <StartTranscriptionButton mediaAssetId={selectedFile.id} />
                   </div>
                 </div>
               ) : (
