@@ -1,492 +1,554 @@
-"use client";
-import {
-  onlineManager,
-  useQueryClient
-} from "./chunk-CKP7QBHI.js";
-import {
-  createComponent,
-  createSignal,
-  lazy,
-  mergeProps,
-  render,
-  setupStyleSheet
-} from "./chunk-TLZOGT6B.js";
-import {
-  require_jsx_runtime
-} from "./chunk-4SSLLSUD.js";
-import {
-  require_react
-} from "./chunk-QLEBPE4M.js";
-import {
-  __privateAdd,
-  __privateGet,
-  __privateSet,
-  __toESM
-} from "./chunk-WOOG5QLI.js";
+from __future__ import annotations
 
-// ../../node_modules/@tanstack/react-query-devtools/build/modern/ReactQueryDevtools.js
-var React = __toESM(require_react(), 1);
+import uuid
+from datetime import datetime
+from enum import Enum
 
-// ../../node_modules/@tanstack/query-devtools/build/dev.js
-var _client, _onlineManager, _queryFlavor, _version, _isMounted, _styleNonce, _shadowDOMTarget, _buttonPosition, _position, _initialIsOpen, _errorTypes, _hideDisabledQueries, _Component, _theme, _dispose, _a;
-var TanstackQueryDevtools = (_a = class {
-  constructor(config) {
-    __privateAdd(this, _client);
-    __privateAdd(this, _onlineManager);
-    __privateAdd(this, _queryFlavor);
-    __privateAdd(this, _version);
-    __privateAdd(this, _isMounted, false);
-    __privateAdd(this, _styleNonce);
-    __privateAdd(this, _shadowDOMTarget);
-    __privateAdd(this, _buttonPosition);
-    __privateAdd(this, _position);
-    __privateAdd(this, _initialIsOpen);
-    __privateAdd(this, _errorTypes);
-    __privateAdd(this, _hideDisabledQueries);
-    __privateAdd(this, _Component);
-    __privateAdd(this, _theme);
-    __privateAdd(this, _dispose);
-    const {
-      client,
-      queryFlavor,
-      version,
-      onlineManager: onlineManager2,
-      buttonPosition,
-      position,
-      initialIsOpen,
-      errorTypes,
-      styleNonce,
-      shadowDOMTarget,
-      hideDisabledQueries,
-      theme
-    } = config;
-    __privateSet(this, _client, createSignal(client));
-    __privateSet(this, _queryFlavor, queryFlavor);
-    __privateSet(this, _version, version);
-    __privateSet(this, _onlineManager, onlineManager2);
-    __privateSet(this, _styleNonce, styleNonce);
-    __privateSet(this, _shadowDOMTarget, shadowDOMTarget);
-    __privateSet(this, _buttonPosition, createSignal(buttonPosition));
-    __privateSet(this, _position, createSignal(position));
-    __privateSet(this, _initialIsOpen, createSignal(initialIsOpen));
-    __privateSet(this, _errorTypes, createSignal(errorTypes));
-    __privateSet(this, _hideDisabledQueries, createSignal(hideDisabledQueries));
-    __privateSet(this, _theme, createSignal(theme));
-  }
-  setButtonPosition(position) {
-    __privateGet(this, _buttonPosition)[1](position);
-  }
-  setPosition(position) {
-    __privateGet(this, _position)[1](position);
-  }
-  setInitialIsOpen(isOpen) {
-    __privateGet(this, _initialIsOpen)[1](isOpen);
-  }
-  setErrorTypes(errorTypes) {
-    __privateGet(this, _errorTypes)[1](errorTypes);
-  }
-  setClient(client) {
-    __privateGet(this, _client)[1](client);
-  }
-  setTheme(theme) {
-    __privateGet(this, _theme)[1](theme);
-  }
-  mount(el) {
-    if (__privateGet(this, _isMounted)) {
-      throw new Error("Devtools is already mounted");
-    }
-    const dispose = render(() => {
-      const _self$ = this;
-      const [btnPosition] = __privateGet(this, _buttonPosition);
-      const [pos] = __privateGet(this, _position);
-      const [isOpen] = __privateGet(this, _initialIsOpen);
-      const [errors] = __privateGet(this, _errorTypes);
-      const [hideDisabledQueries] = __privateGet(this, _hideDisabledQueries);
-      const [queryClient] = __privateGet(this, _client);
-      const [theme] = __privateGet(this, _theme);
-      let Devtools;
-      if (__privateGet(this, _Component)) {
-        Devtools = __privateGet(this, _Component);
-      } else {
-        Devtools = lazy(() => import("./VKXKX7EQ-2OCP5V5D.js"));
-        __privateSet(this, _Component, Devtools);
-      }
-      setupStyleSheet(__privateGet(this, _styleNonce), __privateGet(this, _shadowDOMTarget));
-      return createComponent(Devtools, mergeProps({
-        get queryFlavor() {
-          return __privateGet(_self$, _queryFlavor);
-        },
-        get version() {
-          return __privateGet(_self$, _version);
-        },
-        get onlineManager() {
-          return __privateGet(_self$, _onlineManager);
-        },
-        get shadowDOMTarget() {
-          return __privateGet(_self$, _shadowDOMTarget);
-        }
-      }, {
-        get client() {
-          return queryClient();
-        },
-        get buttonPosition() {
-          return btnPosition();
-        },
-        get position() {
-          return pos();
-        },
-        get initialIsOpen() {
-          return isOpen();
-        },
-        get errorTypes() {
-          return errors();
-        },
-        get hideDisabledQueries() {
-          return hideDisabledQueries();
-        },
-        get theme() {
-          return theme();
-        }
-      }));
-    }, el);
-    __privateSet(this, _isMounted, true);
-    __privateSet(this, _dispose, dispose);
-  }
-  unmount() {
-    var _a3;
-    if (!__privateGet(this, _isMounted)) {
-      throw new Error("Devtools is not mounted");
-    }
-    (_a3 = __privateGet(this, _dispose)) == null ? void 0 : _a3.call(this);
-    __privateSet(this, _isMounted, false);
-  }
-}, _client = new WeakMap(), _onlineManager = new WeakMap(), _queryFlavor = new WeakMap(), _version = new WeakMap(), _isMounted = new WeakMap(), _styleNonce = new WeakMap(), _shadowDOMTarget = new WeakMap(), _buttonPosition = new WeakMap(), _position = new WeakMap(), _initialIsOpen = new WeakMap(), _errorTypes = new WeakMap(), _hideDisabledQueries = new WeakMap(), _Component = new WeakMap(), _theme = new WeakMap(), _dispose = new WeakMap(), _a);
-var _client2, _onlineManager2, _queryFlavor2, _version2, _isMounted2, _styleNonce2, _shadowDOMTarget2, _buttonPosition2, _position2, _initialIsOpen2, _errorTypes2, _hideDisabledQueries2, _onClose, _Component2, _theme2, _dispose2, _a2;
-var TanstackQueryDevtoolsPanel = (_a2 = class {
-  constructor(config) {
-    __privateAdd(this, _client2);
-    __privateAdd(this, _onlineManager2);
-    __privateAdd(this, _queryFlavor2);
-    __privateAdd(this, _version2);
-    __privateAdd(this, _isMounted2, false);
-    __privateAdd(this, _styleNonce2);
-    __privateAdd(this, _shadowDOMTarget2);
-    __privateAdd(this, _buttonPosition2);
-    __privateAdd(this, _position2);
-    __privateAdd(this, _initialIsOpen2);
-    __privateAdd(this, _errorTypes2);
-    __privateAdd(this, _hideDisabledQueries2);
-    __privateAdd(this, _onClose);
-    __privateAdd(this, _Component2);
-    __privateAdd(this, _theme2);
-    __privateAdd(this, _dispose2);
-    const {
-      client,
-      queryFlavor,
-      version,
-      onlineManager: onlineManager2,
-      buttonPosition,
-      position,
-      initialIsOpen,
-      errorTypes,
-      styleNonce,
-      shadowDOMTarget,
-      onClose,
-      hideDisabledQueries,
-      theme
-    } = config;
-    __privateSet(this, _client2, createSignal(client));
-    __privateSet(this, _queryFlavor2, queryFlavor);
-    __privateSet(this, _version2, version);
-    __privateSet(this, _onlineManager2, onlineManager2);
-    __privateSet(this, _styleNonce2, styleNonce);
-    __privateSet(this, _shadowDOMTarget2, shadowDOMTarget);
-    __privateSet(this, _buttonPosition2, createSignal(buttonPosition));
-    __privateSet(this, _position2, createSignal(position));
-    __privateSet(this, _initialIsOpen2, createSignal(initialIsOpen));
-    __privateSet(this, _errorTypes2, createSignal(errorTypes));
-    __privateSet(this, _hideDisabledQueries2, createSignal(hideDisabledQueries));
-    __privateSet(this, _onClose, createSignal(onClose));
-    __privateSet(this, _theme2, createSignal(theme));
-  }
-  setButtonPosition(position) {
-    __privateGet(this, _buttonPosition2)[1](position);
-  }
-  setPosition(position) {
-    __privateGet(this, _position2)[1](position);
-  }
-  setInitialIsOpen(isOpen) {
-    __privateGet(this, _initialIsOpen2)[1](isOpen);
-  }
-  setErrorTypes(errorTypes) {
-    __privateGet(this, _errorTypes2)[1](errorTypes);
-  }
-  setClient(client) {
-    __privateGet(this, _client2)[1](client);
-  }
-  setOnClose(onClose) {
-    __privateGet(this, _onClose)[1](() => onClose);
-  }
-  setTheme(theme) {
-    __privateGet(this, _theme2)[1](theme);
-  }
-  mount(el) {
-    if (__privateGet(this, _isMounted2)) {
-      throw new Error("Devtools is already mounted");
-    }
-    const dispose = render(() => {
-      const _self$ = this;
-      const [btnPosition] = __privateGet(this, _buttonPosition2);
-      const [pos] = __privateGet(this, _position2);
-      const [isOpen] = __privateGet(this, _initialIsOpen2);
-      const [errors] = __privateGet(this, _errorTypes2);
-      const [hideDisabledQueries] = __privateGet(this, _hideDisabledQueries2);
-      const [queryClient] = __privateGet(this, _client2);
-      const [onClose] = __privateGet(this, _onClose);
-      const [theme] = __privateGet(this, _theme2);
-      let Devtools;
-      if (__privateGet(this, _Component2)) {
-        Devtools = __privateGet(this, _Component2);
-      } else {
-        Devtools = lazy(() => import("./ZUJJ2RGI-H2UIZCVL.js"));
-        __privateSet(this, _Component2, Devtools);
-      }
-      setupStyleSheet(__privateGet(this, _styleNonce2), __privateGet(this, _shadowDOMTarget2));
-      return createComponent(Devtools, mergeProps({
-        get queryFlavor() {
-          return __privateGet(_self$, _queryFlavor2);
-        },
-        get version() {
-          return __privateGet(_self$, _version2);
-        },
-        get onlineManager() {
-          return __privateGet(_self$, _onlineManager2);
-        },
-        get shadowDOMTarget() {
-          return __privateGet(_self$, _shadowDOMTarget2);
-        }
-      }, {
-        get client() {
-          return queryClient();
-        },
-        get buttonPosition() {
-          return btnPosition();
-        },
-        get position() {
-          return pos();
-        },
-        get initialIsOpen() {
-          return isOpen();
-        },
-        get errorTypes() {
-          return errors();
-        },
-        get hideDisabledQueries() {
-          return hideDisabledQueries();
-        },
-        get onClose() {
-          return onClose();
-        },
-        get theme() {
-          return theme();
-        }
-      }));
-    }, el);
-    __privateSet(this, _isMounted2, true);
-    __privateSet(this, _dispose2, dispose);
-  }
-  unmount() {
-    var _a3;
-    if (!__privateGet(this, _isMounted2)) {
-      throw new Error("Devtools is not mounted");
-    }
-    (_a3 = __privateGet(this, _dispose2)) == null ? void 0 : _a3.call(this);
-    __privateSet(this, _isMounted2, false);
-  }
-}, _client2 = new WeakMap(), _onlineManager2 = new WeakMap(), _queryFlavor2 = new WeakMap(), _version2 = new WeakMap(), _isMounted2 = new WeakMap(), _styleNonce2 = new WeakMap(), _shadowDOMTarget2 = new WeakMap(), _buttonPosition2 = new WeakMap(), _position2 = new WeakMap(), _initialIsOpen2 = new WeakMap(), _errorTypes2 = new WeakMap(), _hideDisabledQueries2 = new WeakMap(), _onClose = new WeakMap(), _Component2 = new WeakMap(), _theme2 = new WeakMap(), _dispose2 = new WeakMap(), _a2);
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    func,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-// ../../node_modules/@tanstack/react-query-devtools/build/modern/ReactQueryDevtools.js
-var import_jsx_runtime = __toESM(require_jsx_runtime(), 1);
-function ReactQueryDevtools(props) {
-  const queryClient = useQueryClient(props.client);
-  const ref = React.useRef(null);
-  const {
-    buttonPosition,
-    position,
-    initialIsOpen,
-    errorTypes,
-    styleNonce,
-    shadowDOMTarget,
-    hideDisabledQueries,
-    theme
-  } = props;
-  const [devtools] = React.useState(
-    new TanstackQueryDevtools({
-      client: queryClient,
-      queryFlavor: "React Query",
-      version: "5",
-      onlineManager,
-      buttonPosition,
-      position,
-      initialIsOpen,
-      errorTypes,
-      styleNonce,
-      shadowDOMTarget,
-      hideDisabledQueries,
-      theme
-    })
-  );
-  React.useEffect(() => {
-    devtools.setClient(queryClient);
-  }, [queryClient, devtools]);
-  React.useEffect(() => {
-    if (buttonPosition) {
-      devtools.setButtonPosition(buttonPosition);
-    }
-  }, [buttonPosition, devtools]);
-  React.useEffect(() => {
-    if (position) {
-      devtools.setPosition(position);
-    }
-  }, [position, devtools]);
-  React.useEffect(() => {
-    devtools.setInitialIsOpen(initialIsOpen || false);
-  }, [initialIsOpen, devtools]);
-  React.useEffect(() => {
-    devtools.setErrorTypes(errorTypes || []);
-  }, [errorTypes, devtools]);
-  React.useEffect(() => {
-    devtools.setTheme(theme);
-  }, [theme, devtools]);
-  React.useEffect(() => {
-    if (ref.current) {
-      devtools.mount(ref.current);
-    }
-    return () => {
-      devtools.unmount();
-    };
-  }, [devtools]);
-  return (0, import_jsx_runtime.jsx)("div", { dir: "ltr", className: "tsqd-parent-container", ref });
-}
-
-// ../../node_modules/@tanstack/react-query-devtools/build/modern/ReactQueryDevtoolsPanel.js
-var React2 = __toESM(require_react(), 1);
-var import_jsx_runtime2 = __toESM(require_jsx_runtime(), 1);
-function ReactQueryDevtoolsPanel(props) {
-  const queryClient = useQueryClient(props.client);
-  const ref = React2.useRef(null);
-  const {
-    errorTypes,
-    styleNonce,
-    shadowDOMTarget,
-    hideDisabledQueries,
-    theme
-  } = props;
-  const [devtools] = React2.useState(
-    new TanstackQueryDevtoolsPanel({
-      client: queryClient,
-      queryFlavor: "React Query",
-      version: "5",
-      onlineManager,
-      buttonPosition: "bottom-left",
-      position: "bottom",
-      initialIsOpen: true,
-      errorTypes,
-      styleNonce,
-      shadowDOMTarget,
-      onClose: props.onClose,
-      hideDisabledQueries,
-      theme
-    })
-  );
-  React2.useEffect(() => {
-    devtools.setClient(queryClient);
-  }, [queryClient, devtools]);
-  React2.useEffect(() => {
-    devtools.setOnClose(props.onClose ?? (() => {
-    }));
-  }, [props.onClose, devtools]);
-  React2.useEffect(() => {
-    devtools.setErrorTypes(errorTypes || []);
-  }, [errorTypes, devtools]);
-  React2.useEffect(() => {
-    devtools.setTheme(theme);
-  }, [theme, devtools]);
-  React2.useEffect(() => {
-    if (ref.current) {
-      devtools.mount(ref.current);
-    }
-    return () => {
-      devtools.unmount();
-    };
-  }, [devtools]);
-  return (0, import_jsx_runtime2.jsx)(
-    "div",
-    {
-      style: { height: "500px", ...props.style },
-      className: "tsqd-parent-container",
-      ref
-    }
-  );
-}
-
-// ../../node_modules/@tanstack/react-query-devtools/build/modern/index.js
-var ReactQueryDevtools2 = false ? function() {
-  return null;
-} : ReactQueryDevtools;
-var ReactQueryDevtoolsPanel2 = false ? function() {
-  return null;
-} : ReactQueryDevtoolsPanel;
-export {
-  ReactQueryDevtools2 as ReactQueryDevtools,
-  ReactQueryDevtoolsPanel2 as ReactQueryDevtoolsPanel
-};
-//# sourceMappingURL=@tanstack_react-query-devtools.js.map
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     ﻿"""Use BIGINT for file and storage byte counters.
-
-Revision ID: 20260519_0001_bigint_file_sizes
-Revises: 0012_add_job_progress_fields
-Create Date: 2026-05-19
-"""
-
-from alembic import op
-import sqlalchemy as sa
+from apps.api.app.database import Base
 
 
-revision = "20260519_0001_bigint_file_sizes"
-down_revision = "0012"
-branch_labels = None
-depends_on = None
+class JobType(str, Enum):
+    DOWNLOAD = "download"
+    TRANSCRIBE = "transcribe"
+    COMBINED = "combined"
+    EXPORT = "export"
 
 
-def _has_table(table_name: str) -> bool:
-    bind = op.get_bind()
-    inspector = sa.inspect(bind)
-    return table_name in inspector.get_table_names()
+class JobStatus(str, Enum):
+    PENDING = "pending"
+    QUEUED = "queued"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    CANCELED = "canceled"
 
 
-def _has_column(table_name: str, column_name: str) -> bool:
-    bind = op.get_bind()
-    inspector = sa.inspect(bind)
-
-    if table_name not in inspector.get_table_names():
-        return False
-
-    return any(column["name"] == column_name for column in inspector.get_columns(table_name))
+class SourceType(str, Enum):
+    URL = "url"
+    UPLOAD = "upload"
+    LOCAL_FILE = "local_file"
 
 
-def _alter_to_bigint(table_name: str, column_name: str) -> None:
-    if not _has_column(table_name, column_name):
-        return
+class MediaKind(str, Enum):
+    AUDIO = "audio"
+    VIDEO = "video"
 
-    op.alter_column(
-        table_name,
-        column_name,
-        existing_type=sa.Integer(),
-        type_=sa.BigInteger(),
-        postgresql_using=f"{column_name}::bigint",
-        existing_nullable=True,
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    profile: Mapped["UserProfile | None"] = relationship(
+        "UserProfile",
+        back_populates="user",
+        uselist=False,
+    )
+    quota: Mapped["UserQuota | None"] = relationship(
+        "UserQuota",
+        back_populates="user",
+        uselist=False,
+    )
+
+    subscriptions: Mapped[list["Subscription"]] = relationship(
+        "Subscription",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="Subscription.created_at.desc()",
+    )
+    usage_snapshots: Mapped[list["UsageSnapshot"]] = relationship(
+        "UsageSnapshot",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="UsageSnapshot.created_at.asc()",
+    )
+
+    media_assets: Mapped[list["MediaAsset"]] = relationship(
+        "MediaAsset",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        foreign_keys="MediaAsset.user_id",
+    )
+    jobs: Mapped[list["Job"]] = relationship(
+        "Job",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        foreign_keys="Job.user_id",
     )
 
 
-def _alter_to_integer(table_name: str, c
+class Plan(Base):
+    __tablename__ = "plans"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    code: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    price_monthly: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    currency: Mapped[str] = mapped_column(String(16), nullable=False, default="USD")
+    storage_bytes_limit: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    transcription_seconds_limit: Mapped[int] = mapped_column(Integer, nullable=False)
+    jobs_count_limit: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    subscriptions: Mapped[list["Subscription"]] = relationship(
+        "Subscription",
+        back_populates="plan",
+    )
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    plan_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("plans.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    current_period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    current_period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship(
+        "User",
+        back_populates="subscriptions",
+    )
+    plan: Mapped["Plan"] = relationship(
+        "Plan",
+        back_populates="subscriptions",
+    )
+
+
+class MediaAsset(Base):
+    __tablename__ = "media_assets"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    user_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    kind: Mapped[str] = mapped_column(String(16), index=True, nullable=False)
+    original_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    stored_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    mime_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    extension: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    duration_sec: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    path: Mapped[str] = mapped_column(Text, nullable=False)
+    checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    user: Mapped["User | None"] = relationship(
+        "User",
+        back_populates="media_assets",
+    )
+    jobs_as_output: Mapped[list["Job"]] = relationship(
+        "Job",
+        back_populates="output_media_asset",
+        foreign_keys="Job.output_media_asset_id",
+    )
+    transcripts: Mapped[list["Transcript"]] = relationship(
+        "Transcript",
+        back_populates="media_asset",
+    )
+
+
+class Job(Base):
+    __tablename__ = "jobs"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    type: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        index=True,
+        nullable=False,
+        default=JobStatus.PENDING.value,
+    )
+    source_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+    user_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    output_media_asset_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("media_assets.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    input_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    requested_format: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    requested_file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    mp4_mode: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+        default="compatible",
+    )
+
+    selected_video_format_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    selected_audio_format_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    transcription_media_asset_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("media_assets.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    transcription_model: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    transcription_language: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+    download_audio: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    download_video: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    progress_percent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    progress_stage: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    progress_message: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped["User | None"] = relationship(
+        "User",
+        back_populates="jobs",
+        foreign_keys=[user_id],
+    )
+    output_media_asset: Mapped["MediaAsset | None"] = relationship(
+        "MediaAsset",
+        back_populates="jobs_as_output",
+        foreign_keys=[output_media_asset_id],
+    )
+    transcription_media_asset: Mapped["MediaAsset | None"] = relationship(
+        "MediaAsset",
+        foreign_keys=[transcription_media_asset_id],
+    )
+    logs: Mapped[list["JobLog"]] = relationship(
+        "JobLog",
+        back_populates="job",
+        cascade="all, delete-orphan",
+        order_by="JobLog.created_at",
+    )
+    transcripts: Mapped[list["Transcript"]] = relationship(
+        "Transcript",
+        back_populates="job",
+        cascade="all, delete-orphan",
+    )
+
+
+class JobLog(Base):
+    __tablename__ = "job_logs"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    job_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("jobs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    level: Mapped[str] = mapped_column(String(16), nullable=False, default="INFO")
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    job: Mapped["Job"] = relationship("Job", back_populates="logs")
+
+
+class Transcript(Base):
+    __tablename__ = "transcripts"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    job_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("jobs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    media_asset_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("media_assets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    language: Mapped[str] = mapped_column(String(16), nullable=False)
+    model_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    engine: Mapped[str] = mapped_column(String(64), nullable=False)
+    full_text: Mapped[str] = mapped_column(Text, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    job: Mapped["Job"] = relationship("Job", back_populates="transcripts")
+    media_asset: Mapped["MediaAsset"] = relationship("MediaAsset", back_populates="transcripts")
+    segments: Mapped[list["TranscriptSegment"]] = relationship(
+        "TranscriptSegment",
+        back_populates="transcript",
+        cascade="all, delete-orphan",
+        order_by="TranscriptSegment.order_index",
+    )
+    export_artifacts: Mapped[list["ExportArtifact"]] = relationship(
+        "ExportArtifact",
+        back_populates="transcript",
+        cascade="all, delete-orphan",
+    )
+
+
+class TranscriptSegment(Base):
+    __tablename__ = "transcript_segments"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    transcript_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("transcripts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    start_sec: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    end_sec: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    speaker_label: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    confidence: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    order_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    transcript: Mapped["Transcript"] = relationship("Transcript", back_populates="segments")
+
+
+class ExportArtifact(Base):
+    __tablename__ = "export_artifacts"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    transcript_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("transcripts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    format: Mapped[str] = mapped_column(String(16), nullable=False)
+    path: Mapped[str] = mapped_column(Text, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    transcript: Mapped["Transcript"] = relationship("Transcript", back_populates="export_artifacts")
+
+
+class UserProfile(Base):
+    __tablename__ = "user_profiles"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship("User", back_populates="profile")
+
+
+class UserQuota(Base):
+    __tablename__ = "user_quotas"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    storage_bytes_used: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    transcription_seconds_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    jobs_count_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    storage_bytes_limit: Mapped[int] = mapped_column(BigInteger, nullable=False, default=10 * 1024 * 1024 * 1024)
+    transcription_seconds_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=36_000)
+    jobs_count_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=500)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship("User", back_populates="quota")
+
+
+class UsageSnapshot(Base):
+    __tablename__ = "usage_snapshots"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    label: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    storage_bytes_used: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    transcription_seconds_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    jobs_count_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship("User", back_populates="usage_snapshots")

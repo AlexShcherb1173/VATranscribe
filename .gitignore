@@ -35,3 +35,5 @@ zip
 
 # Docker
 *.log
+.git_broken_backup/
+.git_broken*/

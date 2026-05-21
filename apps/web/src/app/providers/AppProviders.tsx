@@ -1,14 +1,33 @@
-# VATranscribe: active job context-menu fix
+﻿import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { RouterProvider } from "react-router-dom";
 
-Изменены файлы:
+import { router } from "@/app/router";
+import { UploadQueueProvider } from "@/features/uploads/model/UploadQueueProvider";
+import { I18nProvider } from "@/shared/i18n";
+import { ToastProvider } from "@/shared/ui/ToastProvider";
 
-- apps/web/src/pages/jobs/JobsPage.tsx
-- apps/web/src/widgets/job-table/JobTable.tsx
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
-Что исправлено:
+export function AppProviders() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <I18nProvider>
+        <ToastProvider>
+          <UploadQueueProvider>
+            <RouterProvider router={router} />
+          </UploadQueueProvider>
+        </ToastProvider>
+      </I18nProvider>
 
-- ПКМ по активной задаче (pending/queued/running/processing/started/in_progress) теперь показывает действие "Отменить", а не "Удалить".
-- Для активной задачи frontend вызывает POST /api/v1/jobs/{id}/stop, а не DELETE /api/v1/jobs/{id}.
-- DELETE больше не отправляется на running-задачу, поэтому не должен появляться 409 Conflict.
-- Для завершённых/ошибочных/отменённых задач пункт остаётся "Удалить".
-- Если backend всё-таки вернул ошибку, frontend показывает detail из API, а не общий текст "За
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
+  );
+}
