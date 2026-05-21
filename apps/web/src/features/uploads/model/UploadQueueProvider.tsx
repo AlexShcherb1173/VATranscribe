@@ -188,6 +188,7 @@ export function UploadQueueProvider({ children }: { children: ReactNode }) {
       }
 
       setQueue((prev) => [...uploadableItems, ...prev]);
+      void queryClient.invalidateQueries({ queryKey: ["jobs"] });
 
       if (!suppressToasts) {
         toastInfo(
@@ -270,6 +271,7 @@ export function UploadQueueProvider({ children }: { children: ReactNode }) {
 
         await queryClient.invalidateQueries({ queryKey: ["media-files"] });
         await queryClient.invalidateQueries({ queryKey: ["quota", "me"] });
+        await queryClient.invalidateQueries({ queryKey: ["jobs"] });
 
         return firstUploadedMediaAssetId;
       };

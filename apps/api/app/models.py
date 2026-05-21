@@ -20,6 +20,7 @@ from apps.api.app.database import Base
 
 
 class JobType(str, Enum):
+    UPLOAD = "upload"
     DOWNLOAD = "download"
     TRANSCRIBE = "transcribe"
     COMBINED = "combined"

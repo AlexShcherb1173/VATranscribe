@@ -2,6 +2,8 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import type { Job } from "@/entities/job/model/types";
+import type { UploadQueueItem } from "@/features/uploads/model/types";
+import { useUploadQueue } from "@/features/uploads/model/UploadQueueProvider";
 import { useBillingOverviewQuery } from "@/shared/hooks/useBillingOverviewQuery";
 import { useJobsQuery } from "@/shared/hooks/useJobsQuery";
 import { useMediaFilesQuery } from "@/shared/hooks/useMediaFilesQuery";
@@ -125,14 +127,78 @@ function sortJobsNewestFirst(a: Job, b: Job): number {
   return getJobTime(b) - getJobTime(a);
 }
 
+function mapUploadStatusToJobStatus(status: UploadQueueItem["status"]): Job["status"] {
+  switch (status) {
+    case "succeeded":
+      return "succeeded";
+    case "failed":
+      return "failed";
+    case "idle":
+    case "uploading":
+    default:
+      return "running";
+  }
+}
+
+function mapUploadQueueItemToJob(item: UploadQueueItem): Job {
+  const now = new Date().toISOString();
+  const fileExtension = item.file.name.includes(".")
+    ? item.file.name.split(".").pop() || null
+    : null;
+
+  return {
+    id: `upload-queue:${item.id}`,
+    type: "upload",
+    status: mapUploadStatusToJobStatus(item.status),
+    source_type: "local_file",
+    title: `Upload ${item.file.name}`,
+    input_url: null,
+    requested_format: fileExtension,
+    requested_file_name: item.file.name,
+    mp4_mode: null,
+    output_media_asset_id: item.uploadedMediaAssetId,
+    output_media_asset: null,
+    transcription_media_asset: null,
+    selected_video_format_id: null,
+    selected_audio_format_id: null,
+    transcription_media_asset_id: null,
+    download_audio: false,
+    download_video: false,
+    transcription_model: null,
+    transcription_language: null,
+    error_message: item.errorMessage,
+    progress_percent: Math.max(0, Math.min(100, Number(item.progress ?? 0))),
+    progress_stage: item.status === "failed" ? "failed" : item.status === "succeeded" ? "done" : "uploading",
+    progress_message: item.status === "failed"
+      ? item.errorMessage
+      : item.status === "succeeded"
+        ? "Upload completed"
+        : "Uploading local file",
+    created_at: now,
+    started_at: now,
+    finished_at: item.status === "succeeded" || item.status === "failed" ? now : null,
+  };
+}
+
 export function DashboardPage() {
   const navigate = useNavigate();
   const { t } = useI18n();
 
   const { data: billing } = useBillingOverviewQuery();
-  const { data: jobs = [] } = useJobsQuery();
+  const { data: apiJobs = [] } = useJobsQuery();
+  const { queue: uploadQueue } = useUploadQueue();
   const { data: mediaFiles = [] } = useMediaFilesQuery();
   const { data: transcripts = [] } = useTranscriptsQuery();
+
+  const uploadJobs = useMemo(
+    () => uploadQueue.map(mapUploadQueueItemToJob),
+    [uploadQueue],
+  );
+
+  const jobs = useMemo(
+    () => [...uploadJobs, ...apiJobs],
+    [apiJobs, uploadJobs],
+  );
 
   const [url, setUrl] = useState("");
   const [selectedTaskMode, setSelectedTaskMode] = useState<DashboardTaskMode>("jobs");

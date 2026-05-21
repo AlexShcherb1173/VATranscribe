@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 
+import type { Job } from "@/entities/job/model/types";
 import { deleteJob, stopJob } from "@/features/jobs/api/jobs";
+import type { UploadQueueItem } from "@/features/uploads/model/types";
+import { useUploadQueue } from "@/features/uploads/model/UploadQueueProvider";
 import { downloadMediaFile, saveBlob } from "@/shared/api/files";
 import { getJob } from "@/shared/api/jobs";
 import { JobActions } from "@/features/jobs/ui/JobActions";
@@ -71,6 +74,63 @@ function countByStatusFilter(
 
 function isActiveJobStatus(status: string | null | undefined): boolean {
   return matchesStatusFilter(status, "queued") || matchesStatusFilter(status, "running");
+}
+
+function isUploadQueueJobId(jobId: string | null | undefined): boolean {
+  return Boolean(jobId && jobId.startsWith("upload-queue:"));
+}
+
+function mapUploadStatusToJobStatus(status: UploadQueueItem["status"]): Job["status"] {
+  switch (status) {
+    case "succeeded":
+      return "succeeded";
+    case "failed":
+      return "failed";
+    case "idle":
+    case "uploading":
+    default:
+      return "running";
+  }
+}
+
+function mapUploadQueueItemToJob(item: UploadQueueItem): Job {
+  const now = new Date().toISOString();
+  const fileExtension = item.file.name.includes(".")
+    ? item.file.name.split(".").pop() || null
+    : null;
+
+  return {
+    id: `upload-queue:${item.id}`,
+    type: "upload",
+    status: mapUploadStatusToJobStatus(item.status),
+    source_type: "local_file",
+    title: `Upload ${item.file.name}`,
+    input_url: null,
+    requested_format: fileExtension,
+    requested_file_name: item.file.name,
+    mp4_mode: null,
+    output_media_asset_id: item.uploadedMediaAssetId,
+    output_media_asset: null,
+    transcription_media_asset: null,
+    selected_video_format_id: null,
+    selected_audio_format_id: null,
+    transcription_media_asset_id: null,
+    download_audio: false,
+    download_video: false,
+    transcription_model: null,
+    transcription_language: null,
+    error_message: item.errorMessage,
+    progress_percent: Math.max(0, Math.min(100, Number(item.progress ?? 0))),
+    progress_stage: item.status === "failed" ? "failed" : item.status === "succeeded" ? "done" : "uploading",
+    progress_message: item.status === "failed"
+      ? item.errorMessage
+      : item.status === "succeeded"
+        ? "Upload completed"
+        : "Uploading local file",
+    created_at: now,
+    started_at: now,
+    finished_at: item.status === "succeeded" || item.status === "failed" ? now : null,
+  };
 }
 
 function getApiErrorMessage(error: unknown): string | null {
@@ -154,7 +214,18 @@ export function JobsPage() {
   const [logsOpen, setLogsOpen] = useState(false);
 
   const jobsQuery = useJobsQuery();
-  const data = jobsQuery.data ?? [];
+  const apiJobs = jobsQuery.data ?? [];
+  const { queue: uploadQueue } = useUploadQueue();
+
+  const uploadJobs = useMemo(
+    () => uploadQueue.map(mapUploadQueueItemToJob),
+    [uploadQueue],
+  );
+
+  const data = useMemo(
+    () => [...uploadJobs, ...apiJobs],
+    [apiJobs, uploadJobs],
+  );
 
   const jobs = useMemo(() => {
     return data.filter((job) => {
@@ -228,8 +299,26 @@ export function JobsPage() {
     setLogsOpen(false);
   }, [selectedJobId]);
 
-  const jobDetailsQuery = useJobDetailsQuery(selectedJobId);
-  const jobLogsQuery = useJobLogsQuery(selectedJobId);
+  const selectedUploadJob = useMemo(
+    () => uploadJobs.find((job) => job.id === selectedJobId) ?? null,
+    [selectedJobId, uploadJobs],
+  );
+  const realSelectedJobId = selectedUploadJob ? null : selectedJobId;
+
+  const jobDetailsQuery = useJobDetailsQuery(realSelectedJobId);
+  const jobLogsQuery = useJobLogsQuery(realSelectedJobId);
+  const selectedJobDetails = selectedUploadJob ?? jobDetailsQuery.data ?? null;
+  const selectedJobLogs = selectedUploadJob
+    ? [
+        {
+          id: `${selectedUploadJob.id}:progress`,
+          job_id: selectedUploadJob.id,
+          level: selectedUploadJob.status === "failed" ? "ERROR" : "INFO",
+          message: selectedUploadJob.progress_message || "Uploading local file",
+          created_at: selectedUploadJob.created_at,
+        },
+      ]
+    : jobLogsQuery.data ?? [];
 
   const deleteJobMutation = useMutation({
     mutationFn: (jobId: string) => deleteJob(jobId, false),
@@ -329,6 +418,14 @@ export function JobsPage() {
     syncSelectedJob(job.id);
     setDetailsOpen(true);
 
+    if (isUploadQueueJobId(job.id)) {
+      toastError(
+        t.common.error,
+        "Локальная загрузка ещё не имеет выходного медиафайла для скачивания.",
+      );
+      return;
+    }
+
     try {
       const jobDetails = await getJob(job.id);
       const outputAsset = jobDetails.output_media_asset;
@@ -359,6 +456,14 @@ export function JobsPage() {
   }
 
   function handleCancelJob(jobId: string) {
+    if (isUploadQueueJobId(jobId)) {
+      toastError(
+        t.common.error,
+        "Отмена браузерной загрузки пока недоступна. Дождитесь завершения или перезагрузите страницу.",
+      );
+      return;
+    }
+
     const confirmed = window.confirm(
       (t.jobs as any).confirmCancelJob ||
         "Отменить активную задачу? Обработка будет остановлена, а запись останется в списке.",
@@ -372,6 +477,11 @@ export function JobsPage() {
   }
 
   function handleDeleteJob(jobId: string) {
+    if (isUploadQueueJobId(jobId)) {
+      toastError(t.common.error, "Задача загрузки очищается на странице Файлы после завершения.");
+      return;
+    }
+
     const job = data.find((item) => item.id === jobId);
 
     if (isActiveJobStatus(job?.status)) {
@@ -441,10 +551,14 @@ export function JobsPage() {
             {t.jobs.actions}
           </div>
 
-          {jobDetailsQuery.isLoading ? (
+          {jobDetailsQuery.isLoading && !selectedUploadJob ? (
             <div className="flex items-center gap-3 text-slate-300">
               <Spinner />
               <span>{t.jobs.loadingDetails}</span>
+            </div>
+          ) : selectedUploadJob ? (
+            <div className="text-sm text-slate-400">
+              Локальная загрузка отображается как задача. Управление доступно на странице Файлы.
             </div>
           ) : jobDetailsQuery.data ? (
             <JobActions job={jobDetailsQuery.data} />
@@ -496,20 +610,20 @@ export function JobsPage() {
           </div>
 
           <aside className="grid min-w-0 max-w-full content-start gap-6 overflow-hidden">
-            {jobDetailsQuery.isLoading ? (
+            {jobDetailsQuery.isLoading && !selectedUploadJob ? (
               <Card className="p-5">
                 <div className="flex items-center gap-3 text-slate-300">
                   <Spinner />
                   <span>{t.jobs.loadingDetails}</span>
                 </div>
               </Card>
-            ) : jobDetailsQuery.data ? (
+            ) : selectedJobDetails ? (
               <CollapsibleJobDetails
                 title="Задача"
                 open={detailsOpen}
                 onToggle={() => setDetailsOpen((value) => !value)}
               >
-                <JobDetailsCard job={jobDetailsQuery.data} />
+                <JobDetailsCard job={selectedJobDetails} />
               </CollapsibleJobDetails>
             ) : (
               <Card className="p-5 text-sm text-slate-400">
@@ -518,8 +632,8 @@ export function JobsPage() {
             )}
 
             <CollapsibleLogs
-              logs={jobLogsQuery.data ?? []}
-              loading={jobLogsQuery.isLoading}
+              logs={selectedJobLogs}
+              loading={!selectedUploadJob && jobLogsQuery.isLoading}
               open={logsOpen}
               onToggle={() => setLogsOpen((value) => !value)}
               emptyTitle={t.common.noLogsYet}

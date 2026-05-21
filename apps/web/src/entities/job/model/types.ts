@@ -10,7 +10,8 @@ export type JobType =
   | "download"
   | "transcribe"
   | "combined"
-  | "export";
+  | "export"
+  | "upload";
 
 export type JobMediaAsset = {
   id: string;
@@ -48,6 +49,9 @@ export type Job = {
   transcription_model: string | null;
   transcription_language: string | null;
   error_message: string | null;
+  progress_percent?: number | null;
+  progress_stage?: string | null;
+  progress_message?: string | null;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;

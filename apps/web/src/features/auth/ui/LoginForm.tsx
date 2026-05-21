@@ -113,7 +113,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={mutation.isPending}
-        className="premium-button w-full disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex w-full items-center justify-center rounded-2xl bg-cyan-300 px-5 py-4 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-200/80 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {mutation.isPending ? t.auth.signingIn : t.auth.signIn}
       </button>
