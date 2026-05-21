@@ -1,0 +1,252 @@
+Metadata-Version: 2.4
+Name: vatranscribe
+Version: 0.1.0
+Summary: VATranscribe backend API for media download and transcription workflows
+Author: Alex
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi<1.0.0,>=0.115.0
+Requires-Dist: uvicorn[standard]<1.0.0,>=0.30.0
+Requires-Dist: sqlalchemy<3.0.0,>=2.0.36
+Requires-Dist: psycopg[binary]<4.0.0,>=3.2.0
+Requires-Dist: alembic<2.0.0,>=1.13.0
+Requires-Dist: pydantic<3.0.0,>=2.9.0
+Requires-Dist: pydantic-settings<3.0.0,>=2.5.0
+Requires-Dist: python-multipart<1.0.0,>=0.0.9
+Requires-Dist: redis<6.0.0,>=5.0.0
+Requires-Dist: httpx<1.0.0,>=0.27.0
+Requires-Dist: celery<6.0.0,>=5.4.0
+Requires-Dist: yt-dlp>=2025.3.31
+Requires-Dist: faster-whisper>=1.1.1
+Requires-Dist: ctranslate2>=4.6.0
+Requires-Dist: python-jose[cryptography]<4.0.0,>=3.3.0
+Requires-Dist: passlib[argon2]<2.0.0,>=1.7.4
+Requires-Dist: email-validator<3.0.0,>=2.2.0
+Requires-Dist: onnxruntime>=1.22.0
+Provides-Extra: dev
+Requires-Dist: pytest<9.0.0,>=8.3.0; extra == "dev"
+Requires-Dist: pytest-cov<6.0.0,>=5.0.0; extra == "dev"
+Requires-Dist: ruff<1.0.0,>=0.6.0; extra == "dev"
+Requires-Dist: mypy<2.0.0,>=1.11.0; extra == "dev"
+
+# VATranscribe
+
+> Production-ready media download & AI transcription platform.  
+> Download MP4 / MP3, process media asynchronously, transcribe speech to text, export subtitles and documents.
+
+---
+
+## Preview
+
+VATranscribe is a scalable backend-first platform designed for:
+
+- downloading media from supported URLs
+- converting video/audio assets
+- asynchronous queue processing
+- speech-to-text transcription
+- subtitle generation
+- future desktop + web UI clients
+
+Built with clean architecture and production deployment in mind.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|------|------------|
+| Backend API | FastAPI |
+| Queue | Celery |
+| Broker | Redis |
+| Database | PostgreSQL |
+| ORM | SQLAlchemy 2 |
+| Migrations | Alembic |
+| Media Download | yt-dlp |
+| Media Processing | FFmpeg |
+| AI Speech-to-Text | Faster-Whisper |
+| Containers | Docker / Docker Compose |
+| Future Frontend | React / Electron / Tauri |
+
+---
+
+## Core Features
+
+### Media Download Engine
+
+Supports:
+
+- MP3 extraction
+- MP4 download
+- quality modes:
+  - Fast mode
+  - Compatible mode (AAC audio)
+
+### AI Transcription Engine
+
+Supports:
+
+- MP3 transcription
+- MP4 transcription
+- automatic audio extraction
+- async processing
+- model selection
+- language selection
+
+### Export Formats
+
+Generated artifacts:
+
+- TXT
+- SRT
+- VTT
+- JSON
+
+### Job Queue System
+
+Async background jobs with statuses:
+
+- queued
+- running
+- succeeded
+- failed
+- canceled
+
+### Logging
+
+Each job stores detailed logs for monitoring/debugging.
+
+---
+
+# Architecture
+
+```mermaid
+flowchart TD
+
+A[Client: Web / Desktop] --> B[FastAPI REST API]
+
+B --> C[(PostgreSQL)]
+B --> D[(Redis)]
+
+B --> E[Celery Queue]
+E --> F[Worker]
+
+F --> G[yt-dlp]
+F --> H[FFmpeg]
+F --> I[Faster-Whisper]
+
+F --> C
+```
+# Project Structure
+VATranscribe/  
+│  
+├── apps/  
+│   ├── api/  
+│   └── worker/  
+│  
+├── packages/  
+│   └── core/  
+│  
+├── infra/  
+│   └── docker/  
+│  
+├── alembic/  
+├── storage/  
+│   ├── downloads/  
+│   └── transcripts/  
+│  
+├── docker-compose.yml  
+├── pyproject.toml  
+└── README.md  
+## API Overview
+### Health
+GET /api/v1/health/live  
+GET /api/v1/health/ready
+### Jobs
+GET  /api/v1/jobs  
+GET  /api/v1/jobs/{id}  
+GET  /api/v1/jobs/{id}/logs  
+POST /api/v1/jobs/{id}/retry  
+POST /api/v1/jobs/{id}/cancel  
+### Downloads
+POST /api/v1/downloads/analyze  
+POST /api/v1/downloads/jobs  
+### Transcriptions
+POST /api/v1/transcriptions/jobs  
+GET  /api/v1/transcriptions/{id}
+## Quick Start
+### 1. Clone repository
+git clone https://github.com/AlexShcherb1173VATranscribe.git    
+cd VATranscribe  
+### 2. Environment
+#### Create .env
+APP_ENV=development
+
+POSTGRES_DB=vatranscribe
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+
+DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/vatranscribe
+
+REDIS_URL=redis://redis:6379/0
+
+FFMPEG_PATH=/usr/bin/ffmpeg
+FFPROBE_PATH=/usr/bin/ffprobe
+YT_DLP_PATH=yt-dlp
+### Run
+docker compose up --build
+### Migrate DB
+docker compose exec api alembic upgrade head
+### Swagger Docs
+http://localhost:8000/docs
+## Example Workflow
+### Download MP3
+POST /api/v1/downloads/jobs
+{
+  "url": "https://youtube.com/...",
+  "requested_format": "mp3",
+  "requested_file_name": "lesson_01"
+}
+### Transcribe Media
+POST /api/v1/transcriptions/jobs
+{
+  "media_asset_id": "UUID",
+  "model_name": "small",
+  "language": "ru"
+}
+## Why This Project Matters
+
+This project demonstrates real-world backend engineering skills:  
+async architecture  
+worker queues  
+media pipelines  
+AI integration  
+database modeling  
+REST API design  
+Dockerized infrastructure  
+scalable production patterns  
+## Planned Roadmap
+#### Phase 2  
+* React Web Dashboard  
+* drag & drop uploads  
+* live progress bars  
+* auth system  
+* billing plans  
+#### Phase 3  
+* Desktop App (Electron / Tauri)  
+* batch transcription  
+* local GPU mode  
+#### Phase 4  
+* diarization (speaker separation)  
+* summaries with LLM  
+* translation  
+* cloud storage integrations  
+## Author
+
+### Alex Shcherbina
+
+Full-stack / Backend Developer
+Python • FastAPI • Django • Java • React • Docker • AI Tools
+
+## License
+
+### MIT

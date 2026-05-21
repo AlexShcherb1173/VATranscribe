@@ -1,0 +1,346 @@
+import { useEffect, useState, type MouseEvent } from "react";
+import { createPortal } from "react-dom";
+
+import { useI18n } from "@/shared/i18n";
+import { formatDate } from "@/shared/lib/format";
+import {
+  getJobStatusClass,
+  mapJobStatus,
+  mapJobType,
+} from "@/shared/lib/job-mappers";
+
+type JobLike = {
+  id: string;
+  title?: string | null;
+  type?: string | null;
+  status?: string | null;
+  requested_format?: string | null;
+  mp4_mode?: string | null;
+  input_url?: string | null;
+  created_at?: string | null;
+  finished_at?: string | null;
+  progress_percent?: number | null;
+  progress_stage?: string | null;
+  progress_message?: string | null;
+};
+
+type ContextMenuState = {
+  job: JobLike;
+  x: number;
+  y: number;
+};
+
+function clampMenuPosition(x: number, y: number) {
+  const menuWidth = 220;
+  const menuHeight = 112;
+  const padding = 12;
+
+  if (typeof window === "undefined") {
+    return { x, y };
+  }
+
+  return {
+    x: Math.min(x, window.innerWidth - menuWidth - padding),
+    y: Math.min(y, window.innerHeight - menuHeight - padding),
+  };
+}
+
+function normalizeJobStatus(status: string | null | undefined): string {
+  return (status || "").toLowerCase().trim();
+}
+
+function isActiveJob(job: JobLike): boolean {
+  return [
+    "pending",
+    "queued",
+    "running",
+    "processing",
+    "started",
+    "in_progress",
+  ].includes(normalizeJobStatus(job.status));
+}
+
+function ProgressCell({ job }: { job: JobLike }) {
+  const percent = Math.max(0, Math.min(100, Number(job.progress_percent ?? 0)));
+  const message = job.progress_message || job.progress_stage || "—";
+
+  return (
+    <div className="w-full min-w-0 max-w-[92px]">
+      <div className="mb-1 flex min-w-0 items-center justify-between gap-1 text-[10px]">
+        <span className="min-w-0 truncate text-slate-400" title={message}>
+          {message}
+        </span>
+        <span className="shrink-0 font-semibold text-slate-200">{percent}%</span>
+      </div>
+
+      <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+        <div
+          className="h-full rounded-full bg-cyan-400 transition-all"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+type JobTableProps = {
+  jobs: JobLike[];
+  selectedJobId: string | null;
+  onSelectJob: (jobId: string) => void;
+  onDownloadJob?: (job: JobLike) => void;
+  onCancelJob?: (jobId: string) => void;
+  onDeleteJob?: (jobId: string) => void;
+};
+
+export function JobTable({
+  jobs,
+  selectedJobId,
+  onSelectJob,
+  onDownloadJob,
+  onCancelJob,
+  onDeleteJob,
+}: JobTableProps) {
+  const { t } = useI18n();
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+  const downloadLabel = (t.jobs as any).download || (t.nav as any).downloads || "Скачать";
+  const cancelLabel = (t.jobs as any).cancel || "Отменить";
+  const deleteLabel = (t.jobs as any).deleteJob || (t.common as any).delete || "Удалить";
+  const rightClickHint =
+    (t.jobs as any).rightClickHint || "ПКМ: открыть меню действий";
+
+  useEffect(() => {
+    function closeMenu() {
+      setContextMenu(null);
+    }
+
+    function closeMenuOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setContextMenu(null);
+      }
+    }
+
+    window.addEventListener("click", closeMenu);
+    window.addEventListener("contextmenu", closeMenu);
+    window.addEventListener("keydown", closeMenuOnEscape);
+    window.addEventListener("scroll", closeMenu, true);
+    window.addEventListener("resize", closeMenu);
+
+    return () => {
+      window.removeEventListener("click", closeMenu);
+      window.removeEventListener("contextmenu", closeMenu);
+      window.removeEventListener("keydown", closeMenuOnEscape);
+      window.removeEventListener("scroll", closeMenu, true);
+      window.removeEventListener("resize", closeMenu);
+    };
+  }, []);
+
+  function handleContextMenu(event: MouseEvent<HTMLTableRowElement>, job: JobLike) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    onSelectJob(job.id);
+
+    const position = clampMenuPosition(event.clientX, event.clientY);
+
+    setContextMenu({
+      job,
+      x: position.x,
+      y: position.y,
+    });
+  }
+
+  function handleDownloadSelectedJob() {
+    if (!contextMenu?.job || !onDownloadJob) {
+      return;
+    }
+
+    onDownloadJob(contextMenu.job);
+    setContextMenu(null);
+  }
+
+  function handleDeleteSelectedJob() {
+    if (!contextMenu?.job) {
+      return;
+    }
+
+    const active = isActiveJob(contextMenu.job);
+
+    if (active) {
+      if (!onCancelJob) {
+        return;
+      }
+
+      onCancelJob(contextMenu.job.id);
+      setContextMenu(null);
+      return;
+    }
+
+    if (!onDeleteJob) {
+      return;
+    }
+
+    onDeleteJob(contextMenu.job.id);
+    setContextMenu(null);
+  }
+
+  const menu = contextMenu
+    ? createPortal(
+        <div
+          className="fixed z-[9999] min-w-52 rounded-2xl border border-slate-700 bg-slate-950 p-2 shadow-2xl shadow-black/50"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(event) => event.stopPropagation()}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            disabled={!onDownloadJob}
+            onClick={handleDownloadSelectedJob}
+            className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-cyan-100 transition hover:bg-cyan-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {downloadLabel}
+          </button>
+
+          <button
+            type="button"
+            disabled={
+              contextMenu ? (isActiveJob(contextMenu.job) ? !onCancelJob : !onDeleteJob) : true
+            }
+            onClick={handleDeleteSelectedJob}
+            className={
+              contextMenu && isActiveJob(contextMenu.job)
+                ? "mt-1 w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-amber-200 transition hover:bg-amber-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                : "mt-1 w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-rose-200 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+            }
+          >
+            {contextMenu && isActiveJob(contextMenu.job) ? cancelLabel : deleteLabel}
+          </button>
+        </div>,
+        document.body,
+      )
+    : null;
+
+  return (
+    <div className="relative min-w-0 max-w-full overflow-hidden">
+      <div className="max-w-full overflow-x-auto">
+        <table className="job-table w-full min-w-[1040px] table-fixed text-sm">
+          <colgroup>
+            <col className="w-[30%]" />
+            <col className="w-[11%]" />
+            <col className="w-[11%]" />
+            <col className="w-[13%]" />
+            <col className="w-[13%]" />
+            <col className="w-[11%]" />
+            <col className="w-[11%]" />
+          </colgroup>
+
+          <thead className="bg-slate-900 text-left text-slate-400">
+            <tr>
+              <th className="px-4 py-3">{t.jobs.job}</th>
+              <th className="px-4 py-3">{t.jobs.type}</th>
+              <th className="px-4 py-3">{t.jobs.status}</th>
+              <th className="px-4 py-3">{t.jobs.format}</th>
+              <th className="px-4 py-3">{t.jobs.progress}</th>
+              <th className="px-4 py-3 whitespace-nowrap">{t.jobs.created}</th>
+              <th className="px-4 py-3 pr-6 whitespace-nowrap">{t.jobs.finished}</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {jobs.map((job) => {
+              const selected = selectedJobId === job.id;
+
+              return (
+                <tr
+                  key={job.id}
+                  onClick={() => onSelectJob(job.id)}
+                  onContextMenu={(event) => handleContextMenu(event, job)}
+                  className={[
+                    "cursor-pointer select-none border-t border-slate-800 transition hover:bg-cyan-400/10",
+                    selected ? "bg-cyan-400/10" : "",
+                  ].join(" ")}
+                  title={rightClickHint}
+                >
+                  <td className="min-w-0 px-4 py-3">
+                    <div className="truncate font-semibold text-white">
+                      {job.title || job.id}
+                    </div>
+
+                    <div className="mt-1 truncate text-xs text-slate-500">
+                      {job.input_url || job.id}
+                    </div>
+
+                    <div className="mt-1 truncate text-xs text-slate-600">
+                      {job.id}
+                    </div>
+                  </td>
+
+                  <td className="min-w-0 px-4 py-3 text-slate-200">
+                    <div className="truncate" title={mapJobType(job.type, t)}>
+                      {mapJobType(job.type, t)}
+                    </div>
+                  </td>
+
+                  <td className="min-w-0 px-4 py-3">
+                    <span
+                      className={[
+                        "inline-flex max-w-full rounded-full px-3 py-1 text-xs font-semibold",
+                        getJobStatusClass(job.status),
+                      ].join(" ")}
+                    >
+                      <span className="truncate">{mapJobStatus(job.status, t)}</span>
+                    </span>
+                  </td>
+
+                  <td className="min-w-0 px-4 py-3">
+                    <div
+                      className="truncate font-semibold text-slate-200"
+                      title={job.requested_format || t.common.unavailable}
+                    >
+                      {job.requested_format || t.common.unavailable}
+                    </div>
+
+                    <div
+                      className="mt-1 truncate text-xs text-slate-500"
+                      title={job.mp4_mode || t.common.unavailable}
+                    >
+                      {job.mp4_mode || t.common.unavailable}
+                    </div>
+                  </td>
+
+                  <td className="min-w-0 px-4 py-3">
+                    <ProgressCell job={job} />
+                  </td>
+
+                  <td className="min-w-0 px-4 py-3 text-slate-300">
+                    <div
+                      className="whitespace-nowrap"
+                      title={job.created_at ? formatDate(job.created_at) : t.common.unavailable}
+                    >
+                      {job.created_at ? formatDate(job.created_at) : t.common.unavailable}
+                    </div>
+                  </td>
+
+                  <td className="min-w-0 px-4 py-3 pr-6 text-slate-300">
+                    <div
+                      className="whitespace-nowrap"
+                      title={job.finished_at ? formatDate(job.finished_at) : t.common.unavailable}
+                    >
+                      {job.finished_at ? formatDate(job.finished_at) : t.common.unavailable}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {menu}
+    </div>
+  );
+}
