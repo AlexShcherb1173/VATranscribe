@@ -8,6 +8,22 @@ import { Spinner } from "@/shared/ui/Spinner";
 
 type TabKey = "transcript" | "summary" | "subtitles" | "ideas" | "export";
 
+function getTranscriptName(transcript: {
+  display_name?: string | null;
+  source_file_name?: string | null;
+  media_asset?: { original_name?: string | null; stored_name?: string | null } | null;
+  id: string;
+}): string {
+  return (
+    transcript.display_name ||
+    transcript.source_file_name ||
+    transcript.media_asset?.original_name ||
+    transcript.media_asset?.stored_name ||
+    transcript.id
+  );
+}
+
+
 export function ResultPage() {
   const { transcriptId = "" } = useParams();
   const { t } = useI18n();
@@ -55,7 +71,7 @@ export function ResultPage() {
           </div>
 
           <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-5xl">
-            {t.result.readyTitle}
+            {getTranscriptName(transcript)}
           </h1>
 
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">

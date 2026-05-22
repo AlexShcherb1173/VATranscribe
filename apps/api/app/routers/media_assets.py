@@ -30,7 +30,7 @@ def _build_media_asset_response(item: MediaAsset) -> MediaAssetResponse:
         path=item.path,
         checksum_sha256=item.checksum_sha256,
         created_at=item.created_at,
-        download_url=f"/api/v1/media-assets/{item.id}/download",
+        download_url=f"/media-assets/{item.id}/download",
     )
 
 

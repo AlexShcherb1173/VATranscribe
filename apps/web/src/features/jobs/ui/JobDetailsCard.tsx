@@ -43,6 +43,13 @@ type JobDetailsCardProps = {
     transcription_media_asset_id?: string | null;
     transcription_media_asset?: JobMediaAsset | null;
     error_message?: string | null;
+    heartbeat_at?: string | null;
+    last_log_at?: string | null;
+    last_log_message?: string | null;
+    current_step?: string | null;
+    is_stale?: boolean | null;
+    progress_stage?: string | null;
+    progress_message?: string | null;
   };
 };
 
@@ -52,6 +59,45 @@ function asDisplayValue(value: string | number | null | undefined): string {
   }
 
   return String(value);
+}
+
+function formatRelativeTime(value: string | null | undefined): string {
+  if (!value) {
+    return "—";
+  }
+
+  const timestamp = new Date(value).getTime();
+
+  if (!Number.isFinite(timestamp)) {
+    return "—";
+  }
+
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
+
+  if (minutes < 1) {
+    return "только что";
+  }
+
+  if (minutes < 60) {
+    return `${minutes} мин назад`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+
+  if (rest === 0) {
+    return `${hours} ч назад`;
+  }
+
+  return `${hours} ч ${rest} мин назад`;
+}
+
+function getActivityLabel(job: JobDetailsCardProps["job"]): string {
+  if (!["pending", "queued", "running", "processing", "started", "in_progress"].includes((job.status || "").toLowerCase())) {
+    return "—";
+  }
+
+  return job.is_stale ? "Возможно зависла" : "Активно";
 }
 
 function DetailItem({
@@ -243,6 +289,34 @@ export function JobDetailsCard({ job }: JobDetailsCardProps) {
             title={t.jobs.transcriptionMediaAsset}
           />
         ) : null}
+
+        <DetailItem
+          label="Текущий этап"
+          value={job.current_step || job.progress_message || job.progress_stage}
+          wide
+        />
+
+        <DetailItem
+          label="Последний лог"
+          value={job.last_log_message}
+          wide
+        />
+
+        <DetailItem
+          label="Последний лог"
+          value={job.last_log_at ? `${formatDate(job.last_log_at)} (${formatRelativeTime(job.last_log_at)})` : null}
+        />
+
+        <DetailItem
+          label="Heartbeat"
+          value={job.heartbeat_at ? `${formatDate(job.heartbeat_at)} (${formatRelativeTime(job.heartbeat_at)})` : null}
+        />
+
+        <DetailItem
+          label="Диагностика"
+          value={getActivityLabel(job)}
+          wide
+        />
 
         <DetailItem label={t.jobs.error} value={job.error_message} wide />
       </div>

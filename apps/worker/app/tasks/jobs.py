@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime, timezone
 import re
@@ -40,8 +40,22 @@ def _utcnow() -> datetime:
 
 
 def add_job_log(db: Session, job_id: str, level: str, message: str) -> None:
+    now = _utcnow()
+
     db.add(JobLog(job_id=job_id, level=level, message=message))
+
+    job = db.get(Job, job_id)
+    if job is not None:
+        if hasattr(job, "heartbeat_at"):
+            job.heartbeat_at = now
+        if hasattr(job, "last_log_at"):
+            job.last_log_at = now
+        if hasattr(job, "last_log_message"):
+            job.last_log_message = message
+        db.add(job)
+
     db.commit()
+
 
 def update_job_progress(
     db: Session,
@@ -53,6 +67,7 @@ def update_job_progress(
     log: bool = False,
 ) -> None:
     safe_percent = max(0, min(100, int(percent)))
+    now = _utcnow()
 
     if hasattr(job, "progress_percent"):
         job.progress_percent = safe_percent
@@ -62,6 +77,15 @@ def update_job_progress(
 
     if hasattr(job, "progress_message"):
         job.progress_message = message
+
+    if hasattr(job, "heartbeat_at"):
+        job.heartbeat_at = now
+
+    if message:
+        if hasattr(job, "last_log_at"):
+            job.last_log_at = now
+        if hasattr(job, "last_log_message"):
+            job.last_log_message = message
 
     db.add(job)
     db.commit()
@@ -309,6 +333,37 @@ def _duration_from_segments(segments: list[dict[str, Any]]) -> int:
     return max(last_end, 0)
 
 
+
+
+def _normalize_transcription_language(value: str | None) -> str | None:
+    """Return None for automatic language detection.
+
+    faster-whisper treats language=None as auto-detect. The UI sends
+    "auto" by default, while older jobs may have NULL/empty values.
+    """
+    if value is None:
+        return None
+
+    normalized = str(value).strip().lower()
+
+    if normalized in {"", "auto", "detect", "auto-detect", "autodetect", "none", "null"}:
+        return None
+
+    return normalized
+
+
+def _is_transcript_suspiciously_short(*, full_text: str, segments: list[dict[str, Any]], duration_sec: int) -> bool:
+    text_length = len((full_text or "").strip())
+    segment_count = len(segments or [])
+
+    if duration_sec >= 60 and text_length < 100:
+        return True
+
+    if duration_sec >= 300 and segment_count < 3:
+        return True
+
+    return False
+
 def _model_columns(model: type) -> set[str]:
     return set(model.__table__.columns.keys())
 
@@ -518,10 +573,7 @@ def _run_transcription_job(db: Session, job: Job) -> dict[str, Any]:
         or "medium"
     )
 
-    language = (
-        job.transcription_language
-        or getattr(settings, "default_language", None)
-    )
+    language = _normalize_transcription_language(job.transcription_language)
 
     update_job_progress(
         db,
@@ -535,7 +587,7 @@ def _run_transcription_job(db: Session, job: Job) -> dict[str, Any]:
     add_job_log(db, job.id, "INFO", f"Preparing transcription for media asset: {media_asset.id}")
     add_job_log(db, job.id, "INFO", f"Source path: {source_path}")
     add_job_log(db, job.id, "INFO", f"Model: {model_name}")
-    add_job_log(db, job.id, "INFO", f"Language: {language or 'auto'}")
+    add_job_log(db, job.id, "INFO", f"Language mode: {language or 'auto-detect'}")
 
     temp_dir = _ensure_directory_path(settings.temp_dir)
     audio_path = temp_dir / f"{job.id}_transcription.wav"
@@ -574,6 +626,30 @@ def _run_transcription_job(db: Session, job: Job) -> dict[str, Any]:
         or _duration_from_segments(segments)
         or 0
     )
+    detected_language = result.get("language") or language or "auto"
+
+    add_job_log(db, job.id, "INFO", f"Detected language: {detected_language}")
+    add_job_log(db, job.id, "INFO", f"Segments created: {len(segments)}")
+    add_job_log(db, job.id, "INFO", f"Full text length: {len(full_text.strip())}")
+
+    if _is_transcript_suspiciously_short(
+        full_text=full_text,
+        segments=segments,
+        duration_sec=duration_sec,
+    ):
+        warning_message = (
+            "Транскрипт слишком короткий для длительности файла. "
+            "Возможные причины: неверно выбран язык, в файле музыка/шум, "
+            "VAD отфильтровал речь или модель не смогла распознать аудио. "
+            "Попробуйте повторить транскрибацию с языком Auto или English."
+        )
+        add_job_log(db, job.id, "WARNING", warning_message)
+        if hasattr(job, "progress_message"):
+            job.progress_message = warning_message
+        if hasattr(job, "last_log_message"):
+            job.last_log_message = warning_message
+        db.add(job)
+        db.commit()
 
     update_job_progress(
         db,
@@ -592,7 +668,7 @@ def _run_transcription_job(db: Session, job: Job) -> dict[str, Any]:
             "media_asset_id": media_asset.id,
             "engine": result.get("engine") or "faster-whisper",
             "model_name": model_name,
-            "language": result.get("language") or language,
+            "language": detected_language if detected_language != "auto" else None,
             "full_text": full_text,
             "duration_sec": duration_sec,
         },
@@ -668,6 +744,7 @@ def _run_transcription_job(db: Session, job: Job) -> dict[str, Any]:
                     "engine": transcript.engine,
                     "model_name": transcript.model_name,
                     "language": transcript.language,
+                    "detected_language": detected_language,
                     "duration_sec": duration_sec,
                     "full_text": transcript.full_text,
                     "segments": segments,
@@ -736,8 +813,9 @@ def execute_job_task(job_id: str) -> None:
         if job is None:
             return
 
+        now = _utcnow()
         job.status = JobStatus.RUNNING.value
-        job.started_at = _utcnow()
+        job.started_at = now
         job.finished_at = None
         job.error_message = None
         if hasattr(job, "progress_percent"):
@@ -746,6 +824,12 @@ def execute_job_task(job_id: str) -> None:
             job.progress_stage = "queued"
         if hasattr(job, "progress_message"):
             job.progress_message = "Задача запущена"
+        if hasattr(job, "heartbeat_at"):
+            job.heartbeat_at = now
+        if hasattr(job, "last_log_at"):
+            job.last_log_at = now
+        if hasattr(job, "last_log_message"):
+            job.last_log_message = "Задача запущена"
         db.add(job)
         db.commit()
         db.refresh(job)
@@ -761,14 +845,21 @@ def execute_job_task(job_id: str) -> None:
         else:
             raise ValueError(f"Unsupported job type: {job.type}")
 
+        now = _utcnow()
         job.status = JobStatus.SUCCEEDED.value
-        job.finished_at = _utcnow()
+        job.finished_at = now
         if hasattr(job, "progress_percent"):
             job.progress_percent = 100
         if hasattr(job, "progress_stage"):
             job.progress_stage = "done"
         if hasattr(job, "progress_message"):
             job.progress_message = "Готово"
+        if hasattr(job, "heartbeat_at"):
+            job.heartbeat_at = now
+        if hasattr(job, "last_log_at"):
+            job.last_log_at = now
+        if hasattr(job, "last_log_message"):
+            job.last_log_message = "Готово"
         db.add(job)
         db.commit()
 
@@ -776,13 +867,20 @@ def execute_job_task(job_id: str) -> None:
 
     except Exception as exc:
         if job is not None:
+            now = _utcnow()
             job.status = JobStatus.FAILED.value
-            job.finished_at = _utcnow()
+            job.finished_at = now
             job.error_message = str(exc)
             if hasattr(job, "progress_stage"):
                 job.progress_stage = "failed"
             if hasattr(job, "progress_message"):
                 job.progress_message = str(exc)
+            if hasattr(job, "heartbeat_at"):
+                job.heartbeat_at = now
+            if hasattr(job, "last_log_at"):
+                job.last_log_at = now
+            if hasattr(job, "last_log_message"):
+                job.last_log_message = str(exc)
             db.add(job)
             db.commit()
 

@@ -20,6 +20,65 @@ type FilesFilter = "all" | "succeeded" | "uploading" | "failed";
 
 type TranscriptionSchemeId = "fast" | "standard" | "accurate" | "content";
 
+type TranscriptionLanguageCode = "auto" | "ru" | "en" | "de" | "tr" | "es" | "fr";
+
+type TranscriptionLanguageOption = {
+  code: TranscriptionLanguageCode;
+  apiValue: string | null;
+  getLabel: (language: "en" | "ru") => string;
+  getDescription: (language: "en" | "ru") => string;
+};
+
+const TRANSCRIPTION_LANGUAGES: TranscriptionLanguageOption[] = [
+  {
+    code: "auto",
+    apiValue: null,
+    getLabel: (language) => (language === "ru" ? "Auto · определить язык" : "Auto · detect language"),
+    getDescription: (language) =>
+      language === "ru"
+        ? "Рекомендуется по умолчанию. Подходит для YouTube, музыки, интервью и файлов на неизвестном языке."
+        : "Recommended by default. Good for YouTube, music, interviews and files with unknown language.",
+  },
+  {
+    code: "ru",
+    apiValue: "ru",
+    getLabel: (language) => (language === "ru" ? "Русский" : "Russian"),
+    getDescription: (language) =>
+      language === "ru" ? "Используйте только если речь точно на русском." : "Use only when the speech is definitely Russian.",
+  },
+  {
+    code: "en",
+    apiValue: "en",
+    getLabel: (language) => (language === "ru" ? "Английский" : "English"),
+    getDescription: (language) =>
+      language === "ru" ? "Для англоязычных роликов, песен и интервью." : "For English videos, songs and interviews.",
+  },
+  {
+    code: "de",
+    apiValue: "de",
+    getLabel: (language) => (language === "ru" ? "Немецкий" : "German"),
+    getDescription: (language) => (language === "ru" ? "Для немецкой речи." : "For German speech."),
+  },
+  {
+    code: "tr",
+    apiValue: "tr",
+    getLabel: (language) => (language === "ru" ? "Турецкий" : "Turkish"),
+    getDescription: (language) => (language === "ru" ? "Для турецкой речи." : "For Turkish speech."),
+  },
+  {
+    code: "es",
+    apiValue: "es",
+    getLabel: (language) => (language === "ru" ? "Испанский" : "Spanish"),
+    getDescription: (language) => (language === "ru" ? "Для испанской речи." : "For Spanish speech."),
+  },
+  {
+    code: "fr",
+    apiValue: "fr",
+    getLabel: (language) => (language === "ru" ? "Французский" : "French"),
+    getDescription: (language) => (language === "ru" ? "Для французской речи." : "For French speech."),
+  },
+];
+
 type TranscriptionScheme = {
   id: TranscriptionSchemeId;
   modelName: string;
@@ -157,11 +216,19 @@ export function FilesPage() {
   });
 
   const transcribeFileMutation = useMutation({
-    mutationFn: ({ file, scheme }: { file: MediaFile; scheme: TranscriptionScheme }) =>
+    mutationFn: ({
+      file,
+      scheme,
+      transcriptionLanguage,
+    }: {
+      file: MediaFile;
+      scheme: TranscriptionScheme;
+      transcriptionLanguage: TranscriptionLanguageOption;
+    }) =>
       createTranscriptionJob({
         media_asset_id: file.id,
         model_name: scheme.modelName,
-        language: "ru",
+        language: transcriptionLanguage.apiValue,
         export_formats: scheme.exportFormats,
         transcription_scheme: scheme.id,
         content_profile: scheme.generateContentPack ? "content_pack" : null,
@@ -285,10 +352,14 @@ export function FilesPage() {
     setSchemeDialogFile(file);
   }
 
-  function handleStartTranscriptionWithScheme(file: MediaFile, scheme: TranscriptionScheme) {
+  function handleStartTranscriptionWithScheme(
+    file: MediaFile,
+    scheme: TranscriptionScheme,
+    transcriptionLanguage: TranscriptionLanguageOption,
+  ) {
     setSelectedFile(file.id);
     setSchemeDialogFile(null);
-    transcribeFileMutation.mutate({ file, scheme });
+    transcribeFileMutation.mutate({ file, scheme, transcriptionLanguage });
   }
 
   function handleDeleteFile(file: MediaFile) {
@@ -629,14 +700,20 @@ function TranscriptionSchemeDialog({
   file: MediaFile | null;
   pending: boolean;
   onClose: () => void;
-  onSubmit: (file: MediaFile, scheme: TranscriptionScheme) => void;
+  onSubmit: (
+    file: MediaFile,
+    scheme: TranscriptionScheme,
+    transcriptionLanguage: TranscriptionLanguageOption,
+  ) => void;
 }) {
   const { language, t } = useI18n();
   const [selectedSchemeId, setSelectedSchemeId] = useState<TranscriptionSchemeId>("standard");
+  const [selectedLanguageCode, setSelectedLanguageCode] = useState<TranscriptionLanguageCode>("auto");
 
   useEffect(() => {
     if (file) {
       setSelectedSchemeId("standard");
+      setSelectedLanguageCode("auto");
     }
   }, [file?.id]);
 
@@ -647,6 +724,9 @@ function TranscriptionSchemeDialog({
   const selectedScheme =
     TRANSCRIPTION_SCHEMES.find((scheme) => scheme.id === selectedSchemeId) ??
     getDefaultTranscriptionScheme();
+  const selectedTranscriptionLanguage =
+    TRANSCRIPTION_LANGUAGES.find((item) => item.code === selectedLanguageCode) ??
+    TRANSCRIPTION_LANGUAGES[0];
 
   const fileName = file.stored_name || file.original_name || file.id;
   const title = language === "ru" ? "Выберите схему транскрибации" : "Choose transcription scheme";
@@ -659,6 +739,11 @@ function TranscriptionSchemeDialog({
   const tradeoffLabel = language === "ru" ? "Компромисс" : "Trade-off";
   const modelLabel = language === "ru" ? "Модель" : "Model";
   const formatsLabel = language === "ru" ? "Экспорт" : "Exports";
+  const languageLabel = language === "ru" ? "Язык распознавания" : "Recognition language";
+  const languageHint =
+    language === "ru"
+      ? "Auto рекомендуется по умолчанию. Принудительный язык выбирайте только если вы уверены в языке речи."
+      : "Auto is recommended by default. Force a language only when you are sure about the speech language.";
   const cancelLabel = t.common.cancel || (language === "ru" ? "Отмена" : "Cancel");
   const startLabel = pending
     ? t.common.processing
@@ -752,6 +837,31 @@ function TranscriptionSchemeDialog({
               {selectedScheme.getSubtitle(language)}
             </div>
 
+            <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+              <label className="text-xs uppercase tracking-wide text-slate-500" htmlFor="transcription-language-select">
+                {languageLabel}
+              </label>
+              <select
+                id="transcription-language-select"
+                value={selectedLanguageCode}
+                disabled={pending}
+                onChange={(event) => setSelectedLanguageCode(event.target.value as TranscriptionLanguageCode)}
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-sm font-semibold text-slate-100 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-300/30 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {TRANSCRIPTION_LANGUAGES.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.getLabel(language)}
+                  </option>
+                ))}
+              </select>
+              <div className="mt-2 text-xs leading-5 text-slate-400">
+                {selectedTranscriptionLanguage.getDescription(language)}
+              </div>
+              <div className="mt-2 text-xs leading-5 text-slate-500">
+                {languageHint}
+              </div>
+            </div>
+
             <div className="mt-5 space-y-4 text-sm leading-6 text-slate-300">
               <InfoBlock label={resultLabel} value={selectedScheme.getResult(language)} />
               <InfoBlock label={bestForLabel} value={selectedScheme.getBestFor(language)} />
@@ -760,6 +870,7 @@ function TranscriptionSchemeDialog({
               <div className="grid gap-3 sm:grid-cols-2">
                 <InfoPill label={modelLabel} value={selectedScheme.modelName} />
                 <InfoPill label={formatsLabel} value={selectedScheme.exportFormats.join(", ")} />
+                <InfoPill label={languageLabel} value={selectedTranscriptionLanguage.getLabel(language)} />
               </div>
             </div>
           </div>
@@ -778,7 +889,7 @@ function TranscriptionSchemeDialog({
           <button
             type="button"
             disabled={pending}
-            onClick={() => onSubmit(file, selectedScheme)}
+            onClick={() => onSubmit(file, selectedScheme, selectedTranscriptionLanguage)}
             className="rounded-xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {startLabel}

@@ -4,9 +4,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ExportArtifact, Transcript } from "@/entities/transcript/model/types";
 import { TranscriptCard } from "@/features/transcriptions/ui/TranscriptCard";
 import { TranscriptExports } from "@/features/transcriptions/ui/TranscriptExports";
+import { SubtitleGenerator } from "@/features/transcriptions/ui/SubtitleGenerator";
 import { TranscriptSegmentsTable } from "@/features/transcriptions/ui/TranscriptSegmentsTable";
 import { TranscriptsTable } from "@/features/transcriptions/ui/TranscriptsTable";
 import {
+  createTranscriptSubtitles,
   deleteExportArtifact,
   deleteTranscript,
   downloadExportArtifact,
@@ -18,14 +20,14 @@ import { useTranscriptsQuery } from "@/shared/hooks/useTranscriptsQuery";
 import { Card } from "@/shared/ui/Card";
 import { PageHeader } from "@/shared/ui/PageHeader";
 import { Spinner } from "@/shared/ui/Spinner";
+import { toastError, toastSuccess } from "@/shared/ui/toast";
 
 function notifySuccess(title: string, message?: string) {
-  console.log(`${title}${message ? `: ${message}` : ""}`);
+  toastSuccess(title, message);
 }
 
 function notifyError(title: string, message?: string) {
-  console.error(`${title}${message ? `: ${message}` : ""}`);
-  window.alert(`${title}${message ? `\n${message}` : ""}`);
+  toastError(title, message);
 }
 
 function getTranscriptName(transcript: Transcript): string {
@@ -97,6 +99,28 @@ export function TranscriptionsPage() {
     },
   });
 
+  const createSubtitlesMutation = useMutation({
+    mutationFn: ({
+      transcriptId,
+      formats,
+    }: {
+      transcriptId: string;
+      formats: Array<"srt" | "vtt" | "txt">;
+    }) => createTranscriptSubtitles(transcriptId, { formats, overwrite: true }),
+    onSuccess: async (_result, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ["transcripts"] });
+      await queryClient.invalidateQueries({ queryKey: ["transcript", variables.transcriptId] });
+      notifySuccess("Субтитры созданы", "Файлы SRT/VTT/TXT обновлены и доступны для скачивания.");
+    },
+    onError: (error: any) => {
+      notifyError("Ошибка", error?.message || "Не удалось создать субтитры.");
+    },
+  });
+
+  function handleGenerateSubtitles(transcript: Transcript, formats: Array<"srt" | "vtt" | "txt">) {
+    createSubtitlesMutation.mutate({ transcriptId: transcript.id, formats });
+  }
+
   async function handleDownloadArtifact(transcript: Transcript, artifact: ExportArtifact) {
     try {
       const blob = await downloadExportArtifact(artifact);
@@ -152,7 +176,7 @@ export function TranscriptionsPage() {
           <span>Загрузка результатов...</span>
         </div>
       ) : (
-        <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]">
+        <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
           <div className="min-w-0 overflow-hidden">
             {transcripts.length ? (
               <TranscriptsTable
@@ -186,6 +210,12 @@ export function TranscriptionsPage() {
             ) : selectedTranscript ? (
               <>
                 <TranscriptCard transcript={selectedTranscript} />
+
+                <SubtitleGenerator
+                  transcript={selectedTranscript}
+                  isGenerating={createSubtitlesMutation.isPending}
+                  onGenerate={(formats) => handleGenerateSubtitles(selectedTranscript, formats)}
+                />
 
                 <TranscriptExports
                   transcript={selectedTranscript}

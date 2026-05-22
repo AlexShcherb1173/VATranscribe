@@ -27,6 +27,15 @@ function getTranscriptName(transcript: Transcript): string {
   );
 }
 
+function getSourceMediaName(transcript: Transcript): string {
+  return (
+    transcript.source_file_name ||
+    transcript.media_asset?.original_name ||
+    transcript.media_asset?.stored_name ||
+    transcript.media_asset_id
+  );
+}
+
 export function TranscriptsTable({
   transcripts,
   selectedTranscriptId,
@@ -122,7 +131,7 @@ export function TranscriptsTable({
                     </div>
 
                     <div className="mt-1 truncate text-xs text-slate-600">
-                      Медиафайл: {transcript.media_asset?.original_name || transcript.media_asset_id}
+                      Медиафайл: {getSourceMediaName(transcript)}
                     </div>
                   </td>
 

@@ -23,7 +23,7 @@ export function StartTranscriptionButton({
   navigateToJobsOnSuccess = true,
   onSuccess,
   modelName = "medium",
-  language = "ru",
+  language = null,
 }: StartTranscriptionButtonProps) {
   const { t } = useI18n();
   const navigate = useNavigate();

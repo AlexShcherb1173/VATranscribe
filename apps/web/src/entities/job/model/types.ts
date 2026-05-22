@@ -52,6 +52,11 @@ export type Job = {
   progress_percent?: number | null;
   progress_stage?: string | null;
   progress_message?: string | null;
+  heartbeat_at?: string | null;
+  last_log_at?: string | null;
+  last_log_message?: string | null;
+  current_step?: string | null;
+  is_stale?: boolean | null;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;

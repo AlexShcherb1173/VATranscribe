@@ -11,6 +11,15 @@ function getTranscriptName(transcript: Transcript): string {
   );
 }
 
+function getSourceMediaName(transcript: Transcript): string {
+  return (
+    transcript.source_file_name ||
+    transcript.media_asset?.original_name ||
+    transcript.media_asset?.stored_name ||
+    transcript.media_asset_id
+  );
+}
+
 function DetailItem({
   label,
   value,
@@ -51,6 +60,7 @@ export function TranscriptCard({ transcript }: { transcript: Transcript }) {
         <DetailItem label="Модель" value={transcript.model_name} />
         <DetailItem label="Движок" value={transcript.engine} />
         <DetailItem label="ID задачи" value={transcript.job_id} />
+        <DetailItem label="Исходный файл" value={getSourceMediaName(transcript)} />
         <DetailItem label="ID медиафайла" value={transcript.media_asset_id} />
         <DetailItem
           label="Создано"

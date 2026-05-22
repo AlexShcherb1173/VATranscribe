@@ -127,6 +127,19 @@ function mapUploadQueueItemToJob(item: UploadQueueItem): Job {
       : item.status === "succeeded"
         ? "Upload completed"
         : "Uploading local file",
+    heartbeat_at: now,
+    last_log_at: now,
+    last_log_message: item.status === "failed"
+      ? item.errorMessage
+      : item.status === "succeeded"
+        ? "Upload completed"
+        : "Uploading local file",
+    current_step: item.status === "failed"
+      ? item.errorMessage
+      : item.status === "succeeded"
+        ? "Upload completed"
+        : "Uploading local file",
+    is_stale: false,
     created_at: now,
     started_at: now,
     finished_at: item.status === "succeeded" || item.status === "failed" ? now : null,

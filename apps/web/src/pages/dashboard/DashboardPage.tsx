@@ -539,16 +539,17 @@ function DashboardMetricCard({
       onClick={onClick}
       aria-pressed={active}
       className={[
-        "premium-card p-5 text-left transition focus:outline-none focus:ring-2 focus:ring-cyan-300/70",
+        "min-h-[7rem] rounded-2xl border p-5 text-left transition focus:outline-none focus:ring-2 focus:ring-cyan-300/70",
+        "bg-white text-slate-950 shadow-sm dark:bg-white/[0.04] dark:text-white",
         active
-          ? "border-cyan-300/70 bg-cyan-400/10 shadow-[0_0_0_1px_rgba(103,232,249,0.18)]"
-          : "hover:border-cyan-300/50 hover:bg-cyan-400/5",
+          ? "border-cyan-300 bg-cyan-50 shadow-[0_0_0_1px_rgba(103,232,249,0.22)] dark:bg-cyan-400/10"
+          : "border-slate-200 hover:border-cyan-300/70 hover:bg-cyan-50/60 dark:border-white/10 dark:hover:border-cyan-300/60 dark:hover:bg-cyan-400/5",
       ].join(" ")}
     >
       <div
         className={[
-          "text-sm transition",
-          active ? "text-cyan-200" : "text-slate-500 dark:text-slate-400",
+          "text-sm font-medium transition",
+          active ? "text-cyan-700 dark:text-cyan-200" : "text-slate-600 dark:text-slate-300",
         ].join(" ")}
       >
         {label}

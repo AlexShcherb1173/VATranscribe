@@ -3,6 +3,8 @@ import type { ExportArtifact, Transcript } from "@/entities/transcript/model/typ
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1";
 
+const API_PREFIX_PATTERN = /^\/api\/v\d+(?=\/|$)/;
+
 function getAuthToken(): string | null {
   return (
     localStorage.getItem("vatranscribe_access_token") ||
@@ -28,7 +30,14 @@ function buildUrl(path: string): string {
     return path;
   }
 
-  return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  const normalizedBaseUrl = API_BASE_URL.replace(/\/+$/, "");
+
+  if (API_PREFIX_PATTERN.test(path)) {
+    const apiOrigin = new URL(normalizedBaseUrl).origin;
+    return `${apiOrigin}${path}`;
+  }
+
+  return `${normalizedBaseUrl}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 async function parseError(response: Response): Promise<string> {
@@ -36,7 +45,8 @@ async function parseError(response: Response): Promise<string> {
     const payload = await response.json();
     return payload.detail || payload.message || response.statusText;
   } catch {
-    return response.statusText;
+    const text = await response.text().catch(() => "");
+    return text || response.statusText || "Request failed";
   }
 }
 
@@ -113,13 +123,37 @@ export function getExportArtifactFileName(
   artifact: ExportArtifact,
   sourceName?: string | null,
 ): string {
-  const ext = artifact.format?.toLowerCase() || "txt";
+  const normalizedFormat = artifact.format?.toLowerCase() || "txt";
+  const ext = normalizedFormat === "subtitle_txt" ? "txt" : normalizedFormat;
   const baseName = (sourceName || "transcript")
     .replace(/\.[a-z0-9]{1,8}$/i, "")
     .replace(/[^\p{L}\p{N}_\- .]+/gu, "")
     .trim();
 
   return `${baseName || artifact.transcript_id}.${ext}`;
+}
+
+
+export type CreateTranscriptSubtitlesPayload = {
+  formats: Array<"srt" | "vtt" | "txt">;
+  overwrite?: boolean;
+};
+
+export type CreateTranscriptSubtitlesResponse = {
+  status: string;
+  message?: string;
+  transcript: Transcript;
+  artifacts: ExportArtifact[];
+};
+
+export async function createTranscriptSubtitles(
+  transcriptId: string,
+  payload: CreateTranscriptSubtitlesPayload,
+): Promise<CreateTranscriptSubtitlesResponse> {
+  return requestJson<CreateTranscriptSubtitlesResponse>(`/transcripts/${transcriptId}/subtitles`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export type CreateTranscriptionJobPayload = {

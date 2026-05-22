@@ -294,6 +294,10 @@ class Job(Base):
     progress_stage: Mapped[str | None] = mapped_column(String(64), nullable=True)
     progress_message: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_log_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_log_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

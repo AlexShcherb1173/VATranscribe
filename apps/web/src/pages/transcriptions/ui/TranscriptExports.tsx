@@ -9,6 +9,14 @@ type ContextMenuState = {
   y: number;
 };
 
+function getArtifactLabel(format: string | null | undefined): string {
+  const normalized = (format || "").toLowerCase();
+  if (normalized === "subtitle_txt") {
+    return "TXT";
+  }
+  return (format || "file").toUpperCase();
+}
+
 type TranscriptExportsProps = {
   transcript: Transcript;
   exportsList?: ExportArtifact[];
@@ -75,7 +83,7 @@ export function TranscriptExports({
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="rounded-lg bg-cyan-400/10 px-2 py-1 text-xs font-semibold uppercase text-cyan-200">
-                    {artifact.format}
+                    {getArtifactLabel(artifact.format)}
                   </span>
 
                   <span className="text-xs text-slate-400">

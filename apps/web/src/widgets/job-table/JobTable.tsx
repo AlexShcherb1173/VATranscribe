@@ -22,6 +22,11 @@ type JobLike = {
   progress_percent?: number | null;
   progress_stage?: string | null;
   progress_message?: string | null;
+  heartbeat_at?: string | null;
+  last_log_at?: string | null;
+  last_log_message?: string | null;
+  current_step?: string | null;
+  is_stale?: boolean | null;
 };
 
 type ContextMenuState = {
@@ -60,15 +65,93 @@ function isActiveJob(job: JobLike): boolean {
   ].includes(normalizeJobStatus(job.status));
 }
 
+function minutesSince(value: string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = new Date(value).getTime();
+
+  if (!Number.isFinite(timestamp)) {
+    return null;
+  }
+
+  return Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
+}
+
+function formatRelativeTime(value: string | null | undefined): string {
+  const minutes = minutesSince(value);
+
+  if (minutes === null) {
+    return "—";
+  }
+
+  if (minutes < 1) {
+    return "только что";
+  }
+
+  if (minutes < 60) {
+    return `${minutes} мин назад`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+
+  if (rest === 0) {
+    return `${hours} ч назад`;
+  }
+
+  return `${hours} ч ${rest} мин назад`;
+}
+
+function getActivityState(job: JobLike): {
+  label: string;
+  className: string;
+  title: string;
+} {
+  const active = isActiveJob(job);
+  const stale = Boolean(job.is_stale);
+
+  if (!active) {
+    return {
+      label: "—",
+      className: "text-slate-500",
+      title: "Задача не активна",
+    };
+  }
+
+  if (stale) {
+    return {
+      label: "Возможно зависло",
+      className: "text-amber-300",
+      title: "Heartbeat или последний лог давно не обновлялись",
+    };
+  }
+
+  return {
+    label: "Активно",
+    className: "text-emerald-300",
+    title: "Heartbeat обновляется",
+  };
+}
+
 function ProgressCell({ job }: { job: JobLike }) {
   const percent = Math.max(0, Math.min(100, Number(job.progress_percent ?? 0)));
-  const message = job.progress_message || job.progress_stage || "—";
+  const currentStep =
+    job.current_step ||
+    job.progress_message ||
+    job.progress_stage ||
+    job.last_log_message ||
+    "—";
+  const lastLogMessage = job.last_log_message || currentStep;
+  const lastLogAt = job.last_log_at || job.heartbeat_at || null;
+  const activity = getActivityState(job);
 
   return (
-    <div className="w-full min-w-0 max-w-[92px]">
+    <div className="w-full min-w-0 max-w-[150px]">
       <div className="mb-1 flex min-w-0 items-center justify-between gap-1 text-[10px]">
-        <span className="min-w-0 truncate text-slate-400" title={message}>
-          {message}
+        <span className="min-w-0 truncate text-slate-400" title={currentStep}>
+          {currentStep}
         </span>
         <span className="shrink-0 font-semibold text-slate-200">{percent}%</span>
       </div>
@@ -78,6 +161,16 @@ function ProgressCell({ job }: { job: JobLike }) {
           className="h-full rounded-full bg-cyan-400 transition-all"
           style={{ width: `${percent}%` }}
         />
+      </div>
+
+      <div className="mt-1 min-w-0 space-y-0.5 text-[10px] leading-tight">
+        <div className={["truncate font-semibold", activity.className].join(" ")} title={activity.title}>
+          {activity.label}
+        </div>
+
+        <div className="truncate text-slate-500" title={lastLogMessage}>
+          Лог: {formatRelativeTime(lastLogAt)}
+        </div>
       </div>
     </div>
   );
@@ -227,13 +320,13 @@ export function JobTable({
   return (
     <div className="relative min-w-0 max-w-full overflow-hidden">
       <div className="max-w-full overflow-x-auto">
-        <table className="job-table w-full min-w-[1040px] table-fixed text-sm">
+        <table className="job-table w-full min-w-[1160px] table-fixed text-sm">
           <colgroup>
-            <col className="w-[30%]" />
-            <col className="w-[11%]" />
-            <col className="w-[11%]" />
-            <col className="w-[13%]" />
-            <col className="w-[13%]" />
+            <col className="w-[28%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[12%]" />
+            <col className="w-[18%]" />
             <col className="w-[11%]" />
             <col className="w-[11%]" />
           </colgroup>
