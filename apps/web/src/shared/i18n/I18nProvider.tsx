@@ -100,6 +100,10 @@ const dictionaries = {
       passwordMismatch: "Passwords do not match.",
       passwordHint:
         "At least 8 chars, one lowercase, one uppercase, one digit, no spaces.",
+      showPassword: "Show password",
+      hidePassword: "Hide password",
+      showConfirmPassword: "Show repeated password",
+      hideConfirmPassword: "Hide repeated password",
       creating: "Creating account...",
       signingIn: "Signing in...",
       created: "User created successfully. You can sign in now.",
@@ -538,6 +542,10 @@ const dictionaries = {
       passwordMismatch: "Пароли не совпадают.",
       passwordHint:
         "Минимум 8 символов: строчная, заглавная буква, цифра, без пробелов.",
+      showPassword: "Показать пароль",
+      hidePassword: "Скрыть пароль",
+      showConfirmPassword: "Показать повтор пароля",
+      hideConfirmPassword: "Скрыть повтор пароля",
       creating: "Создаём аккаунт...",
       signingIn: "Входим...",
       created: "Аккаунт создан. Теперь можно войти.",
