@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from collections import Counter
 from datetime import datetime, timezone
+from difflib import SequenceMatcher
 import inspect
+import math
 import re
 import shutil
 import subprocess
@@ -406,12 +409,98 @@ def _segment_duration(segment: dict[str, Any]) -> float:
     return max(0.0, end - start)
 
 
-def _transcript_quality_metrics(*, full_text: str, segments: list[dict[str, Any]], duration_sec: int) -> dict[str, Any]:
+def _normalize_repetition_text(value: str) -> str:
+    normalized = (value or "").lower()
+    normalized = re.sub(r"[^a-zа-яё0-9]+", " ", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return normalized
+
+
+def _text_similarity(left: str, right: str) -> float:
+    left_norm = _normalize_repetition_text(left)
+    right_norm = _normalize_repetition_text(right)
+
+    if not left_norm or not right_norm:
+        return 0.0
+
+    if left_norm == right_norm:
+        return 1.0
+
+    return SequenceMatcher(None, left_norm, right_norm).ratio()
+
+
+def _repetition_metrics(segments: list[dict[str, Any]]) -> dict[str, Any]:
+    normalized_texts = [
+        _normalize_repetition_text(str(segment.get("text") or ""))
+        for segment in segments or []
+    ]
+    normalized_texts = [text for text in normalized_texts if text]
+    segment_count = len(normalized_texts)
+
+    if segment_count == 0:
+        return {
+            "unique_segment_ratio": 0.0,
+            "max_repeated_segment_ratio": 0.0,
+            "consecutive_repeat_count": 0,
+            "near_duplicate_ratio": 0.0,
+            "repetition_score": 0.0,
+            "most_repeated_text": "",
+        }
+
+    counts = Counter(normalized_texts)
+    most_repeated_text, most_repeated_count = counts.most_common(1)[0]
+    unique_segment_ratio = len(counts) / float(segment_count)
+    max_repeated_segment_ratio = most_repeated_count / float(segment_count)
+
+    longest_run = 1
+    current_run = 1
+    near_duplicate_pairs = 0
+
+    for index in range(1, segment_count):
+        similarity = _text_similarity(normalized_texts[index - 1], normalized_texts[index])
+
+        if similarity >= 0.86:
+            near_duplicate_pairs += 1
+            current_run += 1
+        else:
+            current_run = 1
+
+        longest_run = max(longest_run, current_run)
+
+    near_duplicate_ratio = near_duplicate_pairs / float(max(1, segment_count - 1))
+    repetition_score = max(
+        max_repeated_segment_ratio,
+        near_duplicate_ratio,
+        1.0 - unique_segment_ratio,
+    )
+
+    return {
+        "unique_segment_ratio": round(unique_segment_ratio, 6),
+        "max_repeated_segment_ratio": round(max_repeated_segment_ratio, 6),
+        "consecutive_repeat_count": longest_run,
+        "near_duplicate_ratio": round(near_duplicate_ratio, 6),
+        "repetition_score": round(repetition_score, 6),
+        "most_repeated_text": most_repeated_text[:220],
+    }
+
+
+def _transcript_quality_metrics(
+    *,
+    full_text: str,
+    segments: list[dict[str, Any]],
+    duration_sec: int,
+    profile: str | None = None,
+) -> dict[str, Any]:
     text_length = len((full_text or "").strip())
     segment_count = len(segments or [])
     coverage_sec_float = sum(_segment_duration(segment) for segment in segments or [])
     coverage_sec = int(round(coverage_sec_float))
     coverage_ratio = coverage_sec_float / float(duration_sec) if duration_sec > 0 else 0.0
+    repetition = _repetition_metrics(segments)
+    normalized_profile = _normalize_transcription_profile(profile)
+
+    quality_status = "good"
+    quality_warning: str | None = None
 
     if text_length == 0 or segment_count == 0:
         quality_status = "empty"
@@ -419,22 +508,43 @@ def _transcript_quality_metrics(*, full_text: str, segments: list[dict[str, Any]
             "Transcript is empty: the model did not find recognizable speech. "
             "For music videos, use Lyrics / Music clip with vocal isolation."
         )
-    elif duration_sec >= 180 and (coverage_ratio < 0.08 or text_length < 250):
-        quality_status = "low_quality"
-        quality_warning = (
-            "Transcript quality is low for the media duration. "
-            "The audio likely contains music, noise, chorus, applause or overlapping vocals. "
-            "Use Lyrics / Music clip or try a larger model."
-        )
-    elif duration_sec >= 60 and (coverage_ratio < 0.18 or text_length < 100):
-        quality_status = "partial"
-        quality_warning = (
-            "Transcript looks partial for the media duration. "
-            "Review it before using subtitles or content generation."
-        )
-    else:
-        quality_status = "good"
-        quality_warning = None
+    elif normalized_profile == "lyrics_music" and segment_count >= 8:
+        consecutive_repeat_count = int(repetition["consecutive_repeat_count"] or 0)
+        max_repeated_ratio = float(repetition["max_repeated_segment_ratio"] or 0.0)
+        near_duplicate_ratio = float(repetition["near_duplicate_ratio"] or 0.0)
+        unique_ratio = float(repetition["unique_segment_ratio"] or 0.0)
+
+        if (
+            consecutive_repeat_count >= 6
+            or near_duplicate_ratio >= 0.55
+            or (max_repeated_ratio >= 0.35 and unique_ratio <= 0.65)
+        ):
+            quality_status = "hallucinated"
+            quality_warning = (
+                "Transcript looks hallucinated: many neighbouring lyric segments are repeated or nearly identical. "
+                "Retry with Accurate/medium, or upload verified lyrics manually for this music clip."
+            )
+        elif max_repeated_ratio >= 0.28 or unique_ratio <= 0.45:
+            quality_status = "low_quality"
+            quality_warning = (
+                "Transcript quality is low: the lyrics contain too many repeated or near-duplicate segments. "
+                "Review before creating subtitles or content."
+            )
+
+    if quality_status == "good":
+        if duration_sec >= 180 and (coverage_ratio < 0.08 or text_length < 250):
+            quality_status = "low_quality"
+            quality_warning = (
+                "Transcript quality is low for the media duration. "
+                "The audio likely contains music, noise, chorus, applause or overlapping vocals. "
+                "Use Lyrics / Music clip or try a larger model."
+            )
+        elif duration_sec >= 60 and (coverage_ratio < 0.18 or text_length < 100):
+            quality_status = "partial"
+            quality_warning = (
+                "Transcript looks partial for the media duration. "
+                "Review it before using subtitles or content generation."
+            )
 
     return {
         "segments_count": segment_count,
@@ -443,6 +553,7 @@ def _transcript_quality_metrics(*, full_text: str, segments: list[dict[str, Any]
         "coverage_ratio": coverage_ratio,
         "quality_status": quality_status,
         "quality_warning": quality_warning,
+        **repetition,
     }
 
 
@@ -586,12 +697,13 @@ def _transcription_engine_options(profile: str) -> dict[str, Any]:
     if profile == "lyrics_music":
         return {
             "vad_filter": False,
-            "condition_on_previous_text": True,
+            # Important for lyrics/music: do not carry a wrong line across the whole song.
+            "condition_on_previous_text": False,
             "beam_size": 5,
-            "temperature": 0,
-            "no_speech_threshold": 0.95,
-            "log_prob_threshold": -1.4,
-            "compression_ratio_threshold": 3.0,
+            "temperature": [0.0, 0.2, 0.4],
+            "no_speech_threshold": 0.75,
+            "log_prob_threshold": -1.0,
+            "compression_ratio_threshold": 2.3,
         }
 
     if profile == "music_vocal":
@@ -665,6 +777,205 @@ def _call_transcribe_media(
 
 
 
+def _probe_audio_duration_sec(audio_path: Path) -> float:
+    command = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        str(audio_path),
+    ]
+    completed = subprocess.run(
+        command,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+
+    if completed.returncode != 0:
+        return 0.0
+
+    try:
+        return max(0.0, float((completed.stdout or "0").strip() or 0.0))
+    except ValueError:
+        return 0.0
+
+
+def _extract_transcription_chunk(
+    *,
+    source_path: Path,
+    output_path: Path,
+    start_sec: float,
+    duration_sec: float,
+) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    command = [
+        "ffmpeg",
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-ss",
+        f"{start_sec:.3f}",
+        "-t",
+        f"{duration_sec:.3f}",
+        "-i",
+        str(source_path),
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        str(output_path),
+    ]
+    completed = subprocess.run(
+        command,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"Failed to create audio chunk: {' '.join(command)}\n{completed.stdout or ''}"
+        )
+
+
+def _transcribe_lyrics_audio_in_chunks(
+    *,
+    model: Any,
+    audio_path: Path,
+    model_name: str,
+    language: str | None,
+    options: dict[str, Any],
+    db: Session | None,
+    job: Job | None,
+    progress_callback=None,
+) -> dict[str, Any]:
+    """Transcribe lyrics/music audio in isolated chunks to reduce repeated hallucinations.
+
+    Singing over music often makes Whisper repeat a line across a long interval.
+    Chunking with context reset reduces this failure mode.
+    """
+
+    duration_sec_float = _probe_audio_duration_sec(audio_path)
+
+    if duration_sec_float <= 90:
+        chunk_plan = [(0.0, max(duration_sec_float, 0.0) or 90.0)]
+    else:
+        chunk_length = 45.0
+        overlap = 3.0
+        step = chunk_length - overlap
+        chunk_plan = []
+        cursor = 0.0
+
+        while cursor < duration_sec_float:
+            chunk_duration = min(chunk_length, duration_sec_float - cursor)
+            if chunk_duration <= 2.0:
+                break
+            chunk_plan.append((cursor, chunk_duration))
+            cursor += step
+
+    if db is not None and job is not None:
+        add_job_log(
+            db,
+            job.id,
+            "INFO",
+            f"Chunked lyrics transcription: {len(chunk_plan)} chunks, context reset between chunks",
+        )
+
+    chunk_dir = audio_path.parent / f"{audio_path.stem}_lyrics_chunks"
+    if chunk_dir.exists():
+        shutil.rmtree(chunk_dir, ignore_errors=True)
+    chunk_dir.mkdir(parents=True, exist_ok=True)
+
+    all_segments: list[dict[str, Any]] = []
+    detected_language = language
+
+    for index, (chunk_start, chunk_duration) in enumerate(chunk_plan, start=1):
+        chunk_path = chunk_dir / f"chunk_{index:03d}.wav"
+        _extract_transcription_chunk(
+            source_path=audio_path,
+            output_path=chunk_path,
+            start_sec=chunk_start,
+            duration_sec=chunk_duration,
+        )
+
+        if db is not None and job is not None:
+            percent = min(85, 30 + int((index - 1) / max(1, len(chunk_plan)) * 52))
+            update_job_progress(
+                db,
+                job,
+                percent=percent,
+                stage="transcribe_lyrics_chunk",
+                message=f"Transcribing isolated vocals chunk {index}/{len(chunk_plan)}",
+                log=index == 1 or index == len(chunk_plan) or index % 3 == 0,
+            )
+
+        segments_iter, info = model.transcribe(
+            str(chunk_path),
+            language=language,
+            vad_filter=bool(options.get("vad_filter", False)),
+            beam_size=int(options.get("beam_size", 5)),
+            condition_on_previous_text=False,
+            temperature=options.get("temperature", [0.0, 0.2, 0.4]),
+            no_speech_threshold=float(options.get("no_speech_threshold", 0.75)),
+            log_prob_threshold=float(options.get("log_prob_threshold", -1.0)),
+            compression_ratio_threshold=float(options.get("compression_ratio_threshold", 2.3)),
+        )
+
+        detected_language = detected_language or getattr(info, "language", None)
+
+        for item in segments_iter:
+            text = (getattr(item, "text", "") or "").strip()
+            if not text:
+                continue
+
+            adjusted_start = chunk_start + float(getattr(item, "start", 0.0) or 0.0)
+            adjusted_end = chunk_start + float(getattr(item, "end", 0.0) or 0.0)
+
+            if all_segments:
+                previous = all_segments[-1]
+                overlaps_previous = adjusted_start < float(previous["end_sec"]) - 0.75
+                same_as_previous = _text_similarity(str(previous.get("text") or ""), text) >= 0.88
+
+                if overlaps_previous and same_as_previous:
+                    continue
+
+            all_segments.append(
+                {
+                    "start_sec": max(0.0, adjusted_start),
+                    "end_sec": max(adjusted_start, adjusted_end),
+                    "text": text,
+                }
+            )
+
+            if progress_callback is not None:
+                progress_callback(
+                    {
+                        "stage": "transcribe",
+                        "duration_sec": duration_sec_float,
+                        "end_sec": adjusted_end,
+                        "index": len(all_segments),
+                    }
+                )
+
+    full_text = " ".join(segment["text"] for segment in all_segments).strip()
+
+    return {
+        "engine": "faster-whisper",
+        "language": detected_language or language,
+        "duration_sec": int(round(duration_sec_float)) if duration_sec_float > 0 else _duration_from_segments(all_segments),
+        "text": full_text,
+        "full_text": full_text,
+        "segments": all_segments,
+    }
+
+
 def _transcribe_with_faster_whisper_direct(
     *,
     audio_path: Path,
@@ -715,6 +1026,18 @@ def _transcribe_with_faster_whisper_direct(
             stage="transcribe_vocals" if profile == "lyrics_music" else "transcribe",
             message="Transcribing isolated vocals" if profile == "lyrics_music" else "Transcribing audio",
             log=True,
+        )
+
+    if profile == "lyrics_music":
+        return _transcribe_lyrics_audio_in_chunks(
+            model=model,
+            audio_path=audio_path,
+            model_name=model_name,
+            language=language,
+            options=options,
+            db=db,
+            job=job,
+            progress_callback=progress_callback,
         )
 
     segments_iter, info = model.transcribe(
@@ -1137,6 +1460,7 @@ def _run_transcription_job(db: Session, job: Job) -> dict[str, Any]:
         full_text=full_text,
         segments=segments,
         duration_sec=duration_sec,
+        profile=transcription_profile,
     )
 
     add_job_log(db, job.id, "INFO", f"Detected language: {detected_language}")
@@ -1144,6 +1468,18 @@ def _run_transcription_job(db: Session, job: Job) -> dict[str, Any]:
     add_job_log(db, job.id, "INFO", f"Full text length: {len(full_text.strip())}")
     add_job_log(db, job.id, "INFO", f"Coverage ratio: {quality['coverage_ratio']:.3f}")
     add_job_log(db, job.id, "INFO", f"Quality status: {quality['quality_status']}")
+    if transcription_profile == "lyrics_music":
+        add_job_log(
+            db,
+            job.id,
+            "INFO",
+            "Repetition metrics: "
+            f"unique_segment_ratio={quality.get('unique_segment_ratio')}, "
+            f"max_repeated_segment_ratio={quality.get('max_repeated_segment_ratio')}, "
+            f"consecutive_repeat_count={quality.get('consecutive_repeat_count')}, "
+            f"near_duplicate_ratio={quality.get('near_duplicate_ratio')}, "
+            f"repetition_score={quality.get('repetition_score')}",
+        )
 
     transcript_is_empty = not full_text.strip() and not segments
 
@@ -1312,6 +1648,12 @@ def _run_transcription_job(db: Session, job: Job) -> dict[str, Any]:
                         "text_length": quality["text_length"],
                         "coverage_sec": quality["coverage_sec"],
                         "coverage_ratio": quality["coverage_ratio"],
+                        "unique_segment_ratio": quality.get("unique_segment_ratio"),
+                        "max_repeated_segment_ratio": quality.get("max_repeated_segment_ratio"),
+                        "consecutive_repeat_count": quality.get("consecutive_repeat_count"),
+                        "near_duplicate_ratio": quality.get("near_duplicate_ratio"),
+                        "repetition_score": quality.get("repetition_score"),
+                        "most_repeated_text": quality.get("most_repeated_text"),
                     },
                     "audio_profile": transcription_profile,
                 },

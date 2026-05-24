@@ -947,6 +947,7 @@ const dictionaries = {
       qualityGood: "Хорошее",
       qualityPartial: "Частичное",
       qualityLow: "Низкое качество",
+      qualityHallucinated: "Повторы / галлюцинация",
       qualityEmpty: "Пустой",
       qualityWarning: "Предупреждение о качестве",
       coverage: "Покрытие",

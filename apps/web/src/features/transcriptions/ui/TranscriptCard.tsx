@@ -47,6 +47,7 @@ function getQualityLabel(status: string | null | undefined, t: any): string {
   if (normalized === "good") return t.transcriptions.qualityGood;
   if (normalized === "partial") return t.transcriptions.qualityPartial;
   if (normalized === "low_quality") return t.transcriptions.qualityLow;
+  if (normalized === "hallucinated") return t.transcriptions.qualityHallucinated || "Hallucinated";
   if (normalized === "empty") return t.transcriptions.qualityEmpty;
 
   return status || "—";

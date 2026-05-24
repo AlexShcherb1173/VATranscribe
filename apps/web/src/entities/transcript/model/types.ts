@@ -36,7 +36,7 @@ export type Transcript = {
   segments_count?: number | null;
   coverage_sec?: number | null;
   coverage_ratio?: string | number | null;
-  quality_status?: "good" | "partial" | "low_quality" | "empty" | string | null;
+  quality_status?: "good" | "partial" | "low_quality" | "hallucinated" | "empty" | string | null;
   quality_warning?: string | null;
   created_at: string;
   segments?: TranscriptSegment[];
