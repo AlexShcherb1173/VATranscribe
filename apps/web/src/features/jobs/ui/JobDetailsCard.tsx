@@ -61,7 +61,72 @@ function asDisplayValue(value: string | number | null | undefined): string {
   return String(value);
 }
 
-function formatRelativeTime(value: string | null | undefined): string {
+function translateJobRuntimeText(
+  value: string | number | null | undefined,
+  t: ReturnType<typeof useI18n>["t"],
+): string {
+  const raw = asDisplayValue(value);
+
+  if (raw === "—") {
+    return raw;
+  }
+
+  const replacements: Array<[RegExp, string]> = [
+    [/^Job started$/i, t.jobs.logJobStarted],
+    [/^Transcription job created$/i, t.jobs.logTranscriptionCreated],
+    [/^Transcription job enqueued$/i, t.jobs.logTranscriptionEnqueued],
+    [/^Подготовка транскрибации$/i, t.jobs.logPreparingTranscription],
+    [/^Извлечение аудио$/i, t.jobs.logExtractingAudio],
+    [/^Загрузка модели транскрибации$/i, t.jobs.logLoadingTranscriptionModel],
+    [/^Сохранение транскрипта$/i, t.jobs.logSavingTranscript],
+    [/^Экспорт TXT\/SRT\/VTT\/JSON$/i, t.jobs.logExportArtifacts],
+    [/^Upload completed$/i, t.jobs.logUploadCompleted],
+    [/^Готово$/i, t.jobs.succeeded],
+    [/^Ошибка$/i, t.jobs.failed],
+    [/^В процессе$/i, t.jobs.running],
+    [/^Активно$/i, t.jobs.active],
+    [/^Транскрипт пустой:.*$/i, t.jobs.logTranscriptEmpty],
+    [/^Транскрипт слишком короткий.*$/i, t.jobs.logTranscriptTooShort],
+    [/^Первый проход вернул 0 сегментов.*$/i, t.jobs.logFirstPassNoSegments],
+    [/^Запускаем fallback.*$/i, t.jobs.logFallbackStarted],
+    [/^Fallback transcription.*$/i, t.jobs.logFallbackStarted],
+  ];
+
+  for (const [pattern, replacement] of replacements) {
+    if (pattern.test(raw)) {
+      return replacement;
+    }
+  }
+
+  if (/^Job failed:/i.test(raw)) {
+    const reason = raw.replace(/^Job failed:\s*/i, "");
+    const translatedReason = translateJobRuntimeText(reason, t);
+    return `${t.jobs.logJobFailed}: ${translatedReason}`;
+  }
+
+  return raw
+    .replace(/^Requested format:/i, `${t.jobs.logRequestedFormat}:`)
+    .replace(/^Audio prepared:/i, `${t.jobs.logAudioPrepared}:`)
+    .replace(/^Detected language:/i, `${t.jobs.logDetectedLanguage}:`)
+    .replace(/^Segments created:/i, `${t.jobs.logSegmentsCreated}:`)
+    .replace(/^Full text length:/i, `${t.jobs.logFullTextLength}:`)
+    .replace(/^Transcript created:/i, `${t.jobs.logTranscriptCreated}:`)
+    .replace(/^Job retried and enqueued$/i, t.jobs.logJobRetried)
+    .replace(/^Language mode:/i, `${t.jobs.logLanguageMode}:`)
+    .replace(/^Audio profile:/i, `${t.jobs.logAudioProfile}:`)
+    .replace(/^Whisper params:/i, `${t.jobs.logWhisperParams}:`)
+    .replace(/^Model:/i, `${t.jobs.logModel}:`)
+    .replace(/^Source path:/i, `${t.jobs.logSourcePath}:`)
+    .replace(/^Stored media path:/i, `${t.jobs.logStoredMediaPath}:`)
+    .replace(/^Resolved media path:/i, `${t.jobs.logResolvedMediaPath}:`)
+    .replace(/^Preparing transcription for media asset:/i, `${t.jobs.logPreparingMediaAsset}:`)
+    .replace(/^Export artifact is empty:/i, `${t.jobs.logExportArtifactEmpty}:`);
+}
+
+function formatRelativeTime(
+  value: string | null | undefined,
+  t: ReturnType<typeof useI18n>["t"],
+): string {
   if (!value) {
     return "—";
   }
@@ -75,29 +140,32 @@ function formatRelativeTime(value: string | null | undefined): string {
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
 
   if (minutes < 1) {
-    return "только что";
+    return t.jobs.justNow;
   }
 
   if (minutes < 60) {
-    return `${minutes} мин назад`;
+    return `${minutes} ${t.jobs.minutesAgo}`;
   }
 
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
 
   if (rest === 0) {
-    return `${hours} ч назад`;
+    return `${hours} ${t.jobs.hoursAgo}`;
   }
 
-  return `${hours} ч ${rest} мин назад`;
+  return `${hours} ${t.jobs.hoursAgo} ${rest} ${t.jobs.minutesAgo}`;
 }
 
-function getActivityLabel(job: JobDetailsCardProps["job"]): string {
+function getActivityLabel(
+  job: JobDetailsCardProps["job"],
+  t: ReturnType<typeof useI18n>["t"],
+): string {
   if (!["pending", "queued", "running", "processing", "started", "in_progress"].includes((job.status || "").toLowerCase())) {
     return "—";
   }
 
-  return job.is_stale ? "Возможно зависла" : "Активно";
+  return job.is_stale ? t.jobs.possiblyStale : t.jobs.active;
 }
 
 function DetailItem({
@@ -291,34 +359,34 @@ export function JobDetailsCard({ job }: JobDetailsCardProps) {
         ) : null}
 
         <DetailItem
-          label="Текущий этап"
-          value={job.current_step || job.progress_message || job.progress_stage}
+          label={t.jobs.currentStep}
+          value={translateJobRuntimeText(job.current_step || job.progress_message || job.progress_stage, t)}
           wide
         />
 
         <DetailItem
-          label="Последний лог"
-          value={job.last_log_message}
+          label={t.jobs.lastLog}
+          value={translateJobRuntimeText(job.last_log_message, t)}
           wide
         />
 
         <DetailItem
-          label="Последний лог"
-          value={job.last_log_at ? `${formatDate(job.last_log_at)} (${formatRelativeTime(job.last_log_at)})` : null}
+          label={t.jobs.lastLog}
+          value={job.last_log_at ? `${formatDate(job.last_log_at)} (${formatRelativeTime(job.last_log_at, t)})` : null}
         />
 
         <DetailItem
-          label="Heartbeat"
-          value={job.heartbeat_at ? `${formatDate(job.heartbeat_at)} (${formatRelativeTime(job.heartbeat_at)})` : null}
+          label={t.jobs.heartbeat}
+          value={job.heartbeat_at ? `${formatDate(job.heartbeat_at)} (${formatRelativeTime(job.heartbeat_at, t)})` : null}
         />
 
         <DetailItem
-          label="Диагностика"
-          value={getActivityLabel(job)}
+          label={t.jobs.diagnostics}
+          value={getActivityLabel(job, t)}
           wide
         />
 
-        <DetailItem label={t.jobs.error} value={job.error_message} wide />
+        <DetailItem label={t.jobs.error} value={translateJobRuntimeText(job.error_message, t)} wide />
       </div>
     </Card>
   );

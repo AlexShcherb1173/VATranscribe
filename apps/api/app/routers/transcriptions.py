@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -20,7 +21,7 @@ from apps.api.app.models import (
     Transcript,
     User,
 )
-from apps.api.app.schemas import JobResponse, TranscriptionJobCreateRequest
+from apps.api.app.schemas import JobResponse
 from apps.api.app.services.quota_service import (
     assert_can_create_job,
     assert_can_use_transcription_seconds,
@@ -29,6 +30,28 @@ from apps.api.app.services.quota_service import (
 )
 
 router = APIRouter(prefix="/transcriptions")
+
+
+class TranscriptionJobCreateRequest(BaseModel):
+    """Request payload for creating a transcription job.
+
+    Kept local to this router so newly introduced frontend fields can be accepted
+    even when older shared schema modules are stale during development.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    media_asset_id: str
+    model_name: str | None = Field(default="medium")
+    language: str | None = None
+    export_formats: list[str] = Field(default_factory=lambda: ["txt", "srt", "vtt", "json"])
+    transcription_scheme: str | None = None
+    content_profile: str | None = None
+    audio_profile: str | None = None
+    generate_summary: bool | None = None
+    generate_content_pack: bool | None = None
+
+
 
 
 def _normalize_transcription_language(value: str | None) -> str | None:
@@ -85,6 +108,12 @@ def _transcript_payload(transcript: Transcript) -> dict[str, Any]:
         "model_name": transcript.model_name,
         "engine": transcript.engine,
         "full_text": transcript.full_text,
+        "duration_sec": getattr(transcript, "duration_sec", None),
+        "segments_count": getattr(transcript, "segments_count", None),
+        "coverage_sec": getattr(transcript, "coverage_sec", None),
+        "coverage_ratio": getattr(transcript, "coverage_ratio", None),
+        "quality_status": getattr(transcript, "quality_status", None),
+        "quality_warning": getattr(transcript, "quality_warning", None),
         "created_at": transcript.created_at,
         "segments": [
             {
@@ -160,6 +189,11 @@ def create_transcription_job(
         transcription_media_asset_id=media_asset.id,
         transcription_model=payload.model_name,
         transcription_language=_normalize_transcription_language(payload.language),
+        transcription_profile=(
+            getattr(payload, "audio_profile", None)
+            or getattr(payload, "content_profile", None)
+            or getattr(payload, "transcription_scheme", None)
+        ),
     )
     db.add(job)
     db.commit()

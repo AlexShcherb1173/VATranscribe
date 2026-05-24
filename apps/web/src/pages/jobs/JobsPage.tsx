@@ -197,19 +197,61 @@ function translateLogMessage(
 ): string {
   const raw = message || "—";
 
-  if (raw.startsWith("Download job created")) {
-    return raw.replace("Download job created", t.jobs.logDownloadCreated);
+  const exact: Array<[RegExp, string]> = [
+    [/^Download job created$/i, t.jobs.logDownloadCreated],
+    [/^Download job enqueued$/i, t.jobs.logDownloadEnqueued],
+    [/^Transcription job created$/i, t.jobs.logTranscriptionCreated],
+    [/^Transcription job enqueued$/i, t.jobs.logTranscriptionEnqueued],
+    [/^Job started$/i, t.jobs.logJobStarted],
+    [/^Job retried and enqueued$/i, t.jobs.logJobRetried],
+    [/^Подготовка транскрибации$/i, t.jobs.logPreparingTranscription],
+    [/^Извлечение аудио$/i, t.jobs.logExtractingAudio],
+    [/^Загрузка модели транскрибации$/i, t.jobs.logLoadingTranscriptionModel],
+    [/^Отделение вокала от музыки$/i, t.jobs.logVocalIsolation],
+    [/^Сохранение транскрипта$/i, t.jobs.logSavingTranscript],
+    [/^Экспорт TXT\/SRT\/VTT\/JSON$/i, t.jobs.logExportArtifacts],
+    [/^Upload completed$/i, t.jobs.logUploadCompleted],
+    [/^Транскрипт пустой:.*$/i, t.jobs.logTranscriptEmpty],
+    [/^Транскрипт слишком короткий.*$/i, t.jobs.logTranscriptTooShort],
+    [/^Первый проход вернул 0 сегментов.*$/i, t.jobs.logFirstPassNoSegments],
+    [/^Запускаем fallback.*$/i, t.jobs.logFallbackStarted],
+    [/^Fallback transcription.*$/i, t.jobs.logFallbackStarted],
+    [/^Lyrics \/ Music clip requires.*$/i, "Lyrics / Music clip requires a stronger model. Upgrading model to medium."],
+  ];
+
+  for (const [pattern, replacement] of exact) {
+    if (pattern.test(raw)) {
+      return replacement;
+    }
   }
 
-  if (raw.startsWith("Requested format:")) {
-    return raw.replace("Requested format:", `${t.jobs.logRequestedFormat}:`);
+  if (/^Job failed:/i.test(raw)) {
+    const reason = raw.replace(/^Job failed:\s*/i, "");
+    const translatedReason = translateLogMessage(reason, t);
+    return `${t.jobs.logJobFailed}: ${translatedReason}`;
   }
 
-  if (raw.startsWith("Download job enqueued")) {
-    return raw.replace("Download job enqueued", t.jobs.logDownloadEnqueued);
-  }
-
-  return raw;
+  return raw
+    .replace(/^Requested format:/i, `${t.jobs.logRequestedFormat}:`)
+    .replace(/^Audio prepared:/i, `${t.jobs.logAudioPrepared}:`)
+    .replace(/^Detected language:/i, `${t.jobs.logDetectedLanguage}:`)
+    .replace(/^Segments created:/i, `${t.jobs.logSegmentsCreated}:`)
+    .replace(/^Full text length:/i, `${t.jobs.logFullTextLength}:`)
+    .replace(/^Coverage ratio:/i, `${t.jobs.logCoverageRatio}:`)
+    .replace(/^Quality status:/i, `${t.jobs.logQualityStatus}:`)
+    .replace(/^Demucs vocals extracted:/i, `${t.jobs.logDemucsVocalsExtracted}:`)
+    .replace(/^Using isolated vocals for transcription:/i, `${t.jobs.logUsingIsolatedVocals}:`)
+    .replace(/^Transcript created:/i, `${t.jobs.logTranscriptCreated}:`)
+    .replace(/^Job retried and enqueued$/i, t.jobs.logJobRetried)
+    .replace(/^Language mode:/i, `${t.jobs.logLanguageMode}:`)
+    .replace(/^Audio profile:/i, `${t.jobs.logAudioProfile}:`)
+    .replace(/^Whisper params:/i, `${t.jobs.logWhisperParams}:`)
+    .replace(/^Model:/i, `${t.jobs.logModel}:`)
+    .replace(/^Source path:/i, `${t.jobs.logSourcePath}:`)
+    .replace(/^Stored media path:/i, `${t.jobs.logStoredMediaPath}:`)
+    .replace(/^Resolved media path:/i, `${t.jobs.logResolvedMediaPath}:`)
+    .replace(/^Preparing transcription for media asset:/i, `${t.jobs.logPreparingMediaAsset}:`)
+    .replace(/^Export artifact is empty:/i, `${t.jobs.logExportArtifactEmpty}:`);
 }
 
 export function JobsPage() {
@@ -377,7 +419,7 @@ export function JobsPage() {
       toastError(
         t.common.error,
         getApiErrorMessage(error) ||
-          "Активную задачу нельзя удалить. Сначала отмените её.",
+          t.jobs.activeJobCannotBeDeleted,
       );
     },
   });
@@ -394,14 +436,14 @@ export function JobsPage() {
 
       toastSuccess(
         t.common.success,
-        (t.jobs as any).cancelled || (t.jobs as any).cancel || "Задача отменена",
+        (t.jobs as any).cancelled || (t.jobs as any).cancel || t.jobs.jobCancelled,
       );
     },
     onError: (error) => {
       toastError(
         t.common.error,
         getApiErrorMessage(error) ||
-          "Не удалось отменить задачу. Проверьте статус задачи и повторите попытку.",
+          t.jobs.cancelFailed,
       );
     },
   });
@@ -434,7 +476,7 @@ export function JobsPage() {
     if (isUploadQueueJobId(job.id)) {
       toastError(
         t.common.error,
-        "Локальная загрузка ещё не имеет выходного медиафайла для скачивания.",
+        t.jobs.uploadHasNoOutput,
       );
       return;
     }
@@ -447,7 +489,7 @@ export function JobsPage() {
       if (!outputAssetId) {
         toastError(
           t.common.error,
-          "У выбранной задачи нет выходного медиафайла для скачивания.",
+          t.jobs.jobHasNoOutput,
         );
         return;
       }
@@ -463,7 +505,7 @@ export function JobsPage() {
     } catch {
       toastError(
         t.common.error,
-        "Не удалось скачать выходной медиафайл задачи.",
+        t.jobs.downloadOutputFailed,
       );
     }
   }
@@ -472,14 +514,14 @@ export function JobsPage() {
     if (isUploadQueueJobId(jobId)) {
       toastError(
         t.common.error,
-        "Отмена браузерной загрузки пока недоступна. Дождитесь завершения или перезагрузите страницу.",
+        t.jobs.browserUploadCancelUnavailable,
       );
       return;
     }
 
     const confirmed = window.confirm(
       (t.jobs as any).confirmCancelJob ||
-        "Отменить активную задачу? Обработка будет остановлена, а запись останется в списке.",
+        t.jobs.confirmCancelActiveJob,
     );
 
     if (!confirmed) {
@@ -491,7 +533,7 @@ export function JobsPage() {
 
   function handleDeleteJob(jobId: string) {
     if (isUploadQueueJobId(jobId)) {
-      toastError(t.common.error, "Задача загрузки очищается на странице Файлы после завершения.");
+      toastError(t.common.error, t.jobs.uploadCleanupHint);
       return;
     }
 
@@ -571,7 +613,7 @@ export function JobsPage() {
             </div>
           ) : selectedUploadJob ? (
             <div className="text-sm text-slate-400">
-              Локальная загрузка отображается как задача. Управление доступно на странице Файлы.
+              {t.jobs.uploadQueueJobHint || "Local upload is shown as a job. Manage it on the Files page."}
             </div>
           ) : jobDetailsQuery.data ? (
             <JobActions job={jobDetailsQuery.data} />
@@ -632,7 +674,7 @@ export function JobsPage() {
               </Card>
             ) : selectedJobDetails ? (
               <CollapsibleJobDetails
-                title="Задача"
+                title={t.jobs.job}
                 open={detailsOpen}
                 onToggle={() => setDetailsOpen((value) => !value)}
               >
@@ -818,7 +860,7 @@ function CollapsibleLogs({
         aria-expanded={open}
       >
         <span className="text-sm font-semibold text-white">
-          Логи
+          {t.jobs.logs}
         </span>
 
         <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 text-sm font-semibold text-slate-200">

@@ -1,10 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
 
+import { useI18n } from "@/shared/i18n";
+
 type SourceKind = "files" | "downloads";
 
 type MagicFlowStep = {
   key: string;
-  label: string;
+  labelKey: "source" | "processing" | "text" | "subtitles" | "content";
   href?: string | ((location: ReturnType<typeof useLocation>) => string);
   disabled?: boolean;
   match: (pathname: string) => boolean;
@@ -66,7 +68,7 @@ function getSourceHref(location: ReturnType<typeof useLocation>): string {
 const steps: MagicFlowStep[] = [
   {
     key: "source",
-    label: "Источник",
+    labelKey: "source",
     href: getSourceHref,
     match: (pathname) =>
       pathname === "/app" ||
@@ -76,13 +78,13 @@ const steps: MagicFlowStep[] = [
   },
   {
     key: "processing",
-    label: "Обработка",
+    labelKey: "processing",
     href: "/app/jobs",
     match: (pathname) => pathname.includes("/jobs"),
   },
   {
     key: "text",
-    label: "Текст",
+    labelKey: "text",
     href: "/app/transcriptions",
     match: (pathname) =>
       pathname.includes("/transcriptions") ||
@@ -91,7 +93,7 @@ const steps: MagicFlowStep[] = [
   },
   {
     key: "subtitles",
-    label: "Субтитры",
+    labelKey: "subtitles",
     href: "/app/transcriptions",
     match: (pathname) =>
       pathname.includes("/transcriptions") ||
@@ -100,13 +102,14 @@ const steps: MagicFlowStep[] = [
   },
   {
     key: "content",
-    label: "Контент",
+    labelKey: "content",
     disabled: true,
     match: () => false,
   },
 ];
 
 export function MagicFlowNav() {
+  const { t } = useI18n();
   const location = useLocation();
   const pathname = location.pathname;
 
@@ -118,21 +121,22 @@ export function MagicFlowNav() {
       {steps.map((step, index) => {
         const isActive = step.match(pathname);
         const href = typeof step.href === "function" ? step.href(location) : step.href;
+        const label = t.flow[step.labelKey];
 
         return (
           <span key={step.key} className="inline-flex items-center gap-2">
             {step.disabled || !href ? (
               <span
                 aria-disabled="true"
-                title="Coming soon"
+                title={t.flow.comingSoon}
                 className="cursor-not-allowed rounded-lg px-2 py-1 text-slate-500 opacity-70"
               >
-                {step.label}
+                {label}
               </span>
             ) : (
               <Link
                 to={href}
-                aria-label={`Перейти к этапу: ${step.label}`}
+                aria-label={`${t.flow.goToStep}: ${label}`}
                 className={[
                   "rounded-lg px-2 py-1 transition",
                   isActive
@@ -140,7 +144,7 @@ export function MagicFlowNav() {
                     : "text-slate-200 hover:bg-white/10 hover:text-white",
                 ].join(" ")}
               >
-                {step.label}
+                {label}
               </Link>
             )}
 

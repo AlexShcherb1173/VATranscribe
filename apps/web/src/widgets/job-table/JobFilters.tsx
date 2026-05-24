@@ -48,7 +48,7 @@ export function JobFilters({
         >
           <option value="">{t.jobs.all}</option>
           <option value="download">{t.jobs.download}</option>
-          <option value="upload">{(t.jobs as any).upload || t.common.uploadFile || "Загрузка"}</option>
+          <option value="upload">{t.jobs.upload}</option>
           <option value="transcribe">{t.jobs.transcribe}</option>
         </select>
       </label>

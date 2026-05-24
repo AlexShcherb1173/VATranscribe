@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import inspect
 import re
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -258,6 +261,191 @@ def _ensure_written_artifact(path: str | Path, *, artifact_format: str) -> Path:
     return artifact_path
 
 
+def _run_command(command: list[str], *, job_id: str | None = None, db: Session | None = None) -> subprocess.CompletedProcess[str]:
+    if db is not None and job_id is not None:
+        add_job_log(db, job_id, "INFO", "Running command: " + " ".join(command))
+
+    completed = subprocess.run(
+        command,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+
+    output = (completed.stdout or "").strip()
+
+    if output and db is not None and job_id is not None:
+        tail = "\n".join(output.splitlines()[-20:])
+        add_job_log(db, job_id, "INFO", f"Command output tail:\n{tail}")
+
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"Command failed with exit code {completed.returncode}: {' '.join(command)}\n{output}"
+        )
+
+    return completed
+
+
+def _normalize_audio_for_whisper(*, input_path: Path, output_path: Path, db: Session, job: Job) -> Path:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    command = [
+        "ffmpeg",
+        "-y",
+        "-hide_banner",
+        "-i",
+        str(input_path),
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        "-af",
+        "loudnorm=I=-16:TP=-1.5:LRA=11",
+        str(output_path),
+    ]
+
+    try:
+        _run_command(command, job_id=job.id, db=db)
+    except Exception as exc:
+        add_job_log(
+            db,
+            job.id,
+            "WARNING",
+            f"Audio normalization failed, using unnormalized audio: {exc}",
+        )
+        shutil.copyfile(input_path, output_path)
+
+    return output_path
+
+
+def _find_demucs_vocals_file(output_dir: Path, source_stem: str) -> Path | None:
+    expected = output_dir / "htdemucs" / source_stem / "vocals.wav"
+
+    if expected.exists() and expected.is_file():
+        return expected
+
+    matches = sorted(output_dir.glob("**/vocals.wav"))
+    return matches[0] if matches else None
+
+
+def _isolate_vocals_with_demucs(*, audio_path: Path, temp_dir: Path, db: Session, job: Job) -> Path:
+    demucs_output_dir = temp_dir / f"{job.id}_demucs"
+
+    if demucs_output_dir.exists():
+        shutil.rmtree(demucs_output_dir, ignore_errors=True)
+
+    demucs_output_dir.mkdir(parents=True, exist_ok=True)
+
+    command = [
+        "python",
+        "-m",
+        "demucs",
+        "--two-stems=vocals",
+        "--device",
+        "cpu",
+        "-n",
+        "htdemucs",
+        "--out",
+        str(demucs_output_dir),
+        str(audio_path),
+    ]
+
+    try:
+        _run_command(command, job_id=job.id, db=db)
+    except Exception as first_exc:
+        add_job_log(
+            db,
+            job.id,
+            "WARNING",
+            "python -m demucs failed, trying demucs executable. "
+            "If both fail, install demucs/torch/torchaudio in the worker image.",
+        )
+        command = [
+            "demucs",
+            "--two-stems=vocals",
+            "--device",
+            "cpu",
+            "-n",
+            "htdemucs",
+            "--out",
+            str(demucs_output_dir),
+            str(audio_path),
+        ]
+
+        try:
+            _run_command(command, job_id=job.id, db=db)
+        except Exception as second_exc:
+            raise RuntimeError(
+                "Lyrics / Music clip requires Demucs in the worker container. "
+                "Install Python packages: demucs torch torchaudio. "
+                f"First error: {first_exc}. Second error: {second_exc}"
+            ) from second_exc
+
+    vocals_path = _find_demucs_vocals_file(demucs_output_dir, audio_path.stem)
+
+    if vocals_path is None:
+        raise FileNotFoundError(
+            f"Demucs did not create vocals.wav in {demucs_output_dir}"
+        )
+
+    add_job_log(db, job.id, "INFO", f"Demucs vocals extracted: {vocals_path}")
+
+    normalized_vocals_path = temp_dir / f"{job.id}_vocals_normalized.wav"
+    return _normalize_audio_for_whisper(
+        input_path=vocals_path,
+        output_path=normalized_vocals_path,
+        db=db,
+        job=job,
+    )
+
+
+def _segment_duration(segment: dict[str, Any]) -> float:
+    start = float(segment.get("start_sec") or segment.get("start") or 0.0)
+    end = float(segment.get("end_sec") or segment.get("end") or 0.0)
+    return max(0.0, end - start)
+
+
+def _transcript_quality_metrics(*, full_text: str, segments: list[dict[str, Any]], duration_sec: int) -> dict[str, Any]:
+    text_length = len((full_text or "").strip())
+    segment_count = len(segments or [])
+    coverage_sec_float = sum(_segment_duration(segment) for segment in segments or [])
+    coverage_sec = int(round(coverage_sec_float))
+    coverage_ratio = coverage_sec_float / float(duration_sec) if duration_sec > 0 else 0.0
+
+    if text_length == 0 or segment_count == 0:
+        quality_status = "empty"
+        quality_warning = (
+            "Transcript is empty: the model did not find recognizable speech. "
+            "For music videos, use Lyrics / Music clip with vocal isolation."
+        )
+    elif duration_sec >= 180 and (coverage_ratio < 0.08 or text_length < 250):
+        quality_status = "low_quality"
+        quality_warning = (
+            "Transcript quality is low for the media duration. "
+            "The audio likely contains music, noise, chorus, applause or overlapping vocals. "
+            "Use Lyrics / Music clip or try a larger model."
+        )
+    elif duration_sec >= 60 and (coverage_ratio < 0.18 or text_length < 100):
+        quality_status = "partial"
+        quality_warning = (
+            "Transcript looks partial for the media duration. "
+            "Review it before using subtitles or content generation."
+        )
+    else:
+        quality_status = "good"
+        quality_warning = None
+
+    return {
+        "segments_count": segment_count,
+        "text_length": text_length,
+        "coverage_sec": coverage_sec,
+        "coverage_ratio": coverage_ratio,
+        "quality_status": quality_status,
+        "quality_warning": quality_warning,
+    }
+
+
 def _safe_export_stem(value: str | None, fallback: str) -> str:
     """Build a readable, filesystem-safe export basename.
 
@@ -350,6 +538,246 @@ def _normalize_transcription_language(value: str | None) -> str | None:
         return None
 
     return normalized
+
+
+
+
+def _normalize_transcription_profile(value: str | None) -> str:
+    normalized = (value or "speech").strip().lower().replace("-", "_").replace(" ", "_")
+
+    aliases = {
+        "standard": "speech",
+        "fast": "speech",
+        "accurate": "speech",
+        "content": "speech",
+        "content_pack": "speech",
+        "default": "speech",
+        "meeting": "speech",
+        "lecture": "speech",
+        "music": "music_vocal",
+        "song": "music_vocal",
+        "vocal": "music_vocal",
+        "music_vocal": "music_vocal",
+        "music_and_vocal": "music_vocal",
+        "lyrics": "lyrics_music",
+        "lyric": "lyrics_music",
+        "lyrics_music": "lyrics_music",
+        "music_clip": "lyrics_music",
+        "clip": "lyrics_music",
+        "karaoke": "lyrics_music",
+        "song_lyrics": "lyrics_music",
+        "noisy": "noisy_speech",
+        "noisy_speech": "noisy_speech",
+    }
+
+    return aliases.get(
+        normalized,
+        normalized if normalized in {"speech", "music_vocal", "lyrics_music", "noisy_speech"} else "speech",
+    )
+
+
+def _transcription_engine_options(profile: str) -> dict[str, Any]:
+    """Return profile-specific options for the core transcription engine.
+
+    The core function may not support every option in older local builds.
+    `_call_transcribe_media` filters unsupported kwargs at runtime.
+    """
+
+    if profile == "lyrics_music":
+        return {
+            "vad_filter": False,
+            "condition_on_previous_text": True,
+            "beam_size": 5,
+            "temperature": 0,
+            "no_speech_threshold": 0.95,
+            "log_prob_threshold": -1.4,
+            "compression_ratio_threshold": 3.0,
+        }
+
+    if profile == "music_vocal":
+        return {
+            "vad_filter": False,
+            "condition_on_previous_text": True,
+            "beam_size": 5,
+            "temperature": 0,
+            "no_speech_threshold": 0.9,
+            "log_prob_threshold": -1.2,
+            "compression_ratio_threshold": 2.8,
+        }
+
+    if profile == "noisy_speech":
+        return {
+            "vad_filter": True,
+            "vad_parameters": {
+                "min_silence_duration_ms": 900,
+                "speech_pad_ms": 600,
+            },
+            "condition_on_previous_text": True,
+            "beam_size": 5,
+            "temperature": 0,
+            "no_speech_threshold": 0.75,
+        }
+
+    return {
+        "vad_filter": True,
+        "condition_on_previous_text": False,
+        "beam_size": 5,
+        "temperature": 0,
+    }
+
+
+def _call_transcribe_media(
+    *,
+    audio_path: Path,
+    model_name: str,
+    language: str | None,
+    profile: str,
+    progress_callback,
+) -> dict[str, Any]:
+    options = _transcription_engine_options(profile)
+    base_kwargs: dict[str, Any] = {
+        "audio_path": audio_path,
+        "model_name": model_name,
+        "language": language,
+        "progress_callback": progress_callback,
+        **options,
+    }
+
+    try:
+        signature = inspect.signature(transcribe_media)
+        accepted_kwargs = {
+            key: value
+            for key, value in base_kwargs.items()
+            if key in signature.parameters
+        }
+        return transcribe_media(**accepted_kwargs)
+    except TypeError:
+        # Backward compatibility with older core signature:
+        # transcribe_media(*, audio_path, model_name, language=None, progress_callback=None)
+        return transcribe_media(
+            audio_path=audio_path,
+            model_name=model_name,
+            language=language,
+            progress_callback=progress_callback,
+        )
+
+
+
+
+
+def _transcribe_with_faster_whisper_direct(
+    *,
+    audio_path: Path,
+    model_name: str,
+    language: str | None,
+    profile: str,
+    db: Session | None = None,
+    job: Job | None = None,
+    progress_callback=None,
+) -> dict[str, Any]:
+    """Direct fallback for audio profiles that need precise Whisper options.
+
+    This is used when the shared core engine returns an empty result. It avoids
+    VAD for music/vocal material where voice activity detection often removes
+    singing as background music/noise.
+    """
+
+    from faster_whisper import WhisperModel
+
+    options = _transcription_engine_options(profile)
+    vad_filter = bool(options.get("vad_filter", True))
+
+    if db is not None and job is not None:
+        update_job_progress(
+            db,
+            job,
+            percent=25,
+            stage="load_model",
+            message="Loading transcription model",
+            log=True,
+        )
+
+    model = WhisperModel(model_name, device="cpu", compute_type="int8")
+
+    if db is not None and job is not None:
+        update_job_progress(
+            db,
+            job,
+            percent=28,
+            stage="model_loaded",
+            message="Model loaded",
+            log=True,
+        )
+        update_job_progress(
+            db,
+            job,
+            percent=30,
+            stage="transcribe_vocals" if profile == "lyrics_music" else "transcribe",
+            message="Transcribing isolated vocals" if profile == "lyrics_music" else "Transcribing audio",
+            log=True,
+        )
+
+    segments_iter, info = model.transcribe(
+        str(audio_path),
+        language=language,
+        vad_filter=vad_filter,
+        beam_size=int(options.get("beam_size", 5)),
+        condition_on_previous_text=bool(options.get("condition_on_previous_text", False)),
+        temperature=options.get("temperature", 0),
+        no_speech_threshold=float(options.get("no_speech_threshold", 0.6)),
+        log_prob_threshold=float(options.get("log_prob_threshold", -1.0)),
+        compression_ratio_threshold=float(options.get("compression_ratio_threshold", 2.4)),
+    )
+
+    segments: list[dict[str, Any]] = []
+
+    duration_sec = int(float(getattr(info, "duration", 0.0) or 0.0))
+
+    for item in segments_iter:
+        text = (getattr(item, "text", "") or "").strip()
+
+        if not text:
+            if progress_callback is not None:
+                progress_callback({
+                    "stage": "transcribe",
+                    "duration_sec": duration_sec,
+                    "end_sec": float(getattr(item, "end", 0.0) or 0.0),
+                    "index": len(segments),
+                })
+            continue
+
+        segment = {
+            "start_sec": float(getattr(item, "start", 0.0) or 0.0),
+            "end_sec": float(getattr(item, "end", 0.0) or 0.0),
+            "text": text,
+        }
+        segments.append(segment)
+
+        if progress_callback is not None:
+            progress_callback({
+                "stage": "transcribe",
+                "duration_sec": duration_sec,
+                "end_sec": segment["end_sec"],
+                "index": len(segments),
+            })
+
+    full_text = " ".join(segment["text"] for segment in segments).strip()
+
+    return {
+        "engine": "faster-whisper",
+        "language": getattr(info, "language", None) or language,
+        "duration_sec": duration_sec,
+        "text": full_text,
+        "full_text": full_text,
+        "segments": segments,
+    }
+
+
+def _transcript_result_is_empty(result: dict[str, Any]) -> bool:
+    full_text = (result.get("text") or result.get("full_text") or "").strip()
+    segments = result.get("segments") or []
+
+    return not full_text and not segments
 
 
 def _is_transcript_suspiciously_short(*, full_text: str, segments: list[dict[str, Any]], duration_sec: int) -> bool:
@@ -574,6 +1002,10 @@ def _run_transcription_job(db: Session, job: Job) -> dict[str, Any]:
     )
 
     language = _normalize_transcription_language(job.transcription_language)
+    transcription_profile = _normalize_transcription_profile(
+        getattr(job, "transcription_profile", None)
+    )
+    transcription_options = _transcription_engine_options(transcription_profile)
 
     update_job_progress(
         db,
@@ -588,6 +1020,21 @@ def _run_transcription_job(db: Session, job: Job) -> dict[str, Any]:
     add_job_log(db, job.id, "INFO", f"Source path: {source_path}")
     add_job_log(db, job.id, "INFO", f"Model: {model_name}")
     add_job_log(db, job.id, "INFO", f"Language mode: {language or 'auto-detect'}")
+    add_job_log(db, job.id, "INFO", f"Audio profile: {transcription_profile}")
+    if transcription_profile == "lyrics_music":
+        add_job_log(
+            db,
+            job.id,
+            "INFO",
+            "This mode is slow on CPU. Vocal isolation and Whisper transcription can take 20-30 minutes for long clips.",
+        )
+    add_job_log(
+        db,
+        job.id,
+        "INFO",
+        "Whisper params: "
+        + ", ".join(f"{key}={value}" for key, value in transcription_options.items()),
+    )
 
     temp_dir = _ensure_directory_path(settings.temp_dir)
     audio_path = temp_dir / f"{job.id}_transcription.wav"
@@ -608,15 +1055,73 @@ def _run_transcription_job(db: Session, job: Job) -> dict[str, Any]:
 
     add_job_log(db, job.id, "INFO", f"Audio prepared: {audio_path}")
 
-    # Core signature:
-    # transcribe_media(*, audio_path: Path, model_name: str, language: str | None = None)
-    # It is keyword-only, so audio_path must be passed by name.
-    result = transcribe_media(
-        audio_path=audio_path,
-        model_name=model_name,
-        language=language,
-        progress_callback=_transcription_progress_callback(db, job),
-    )
+    transcription_audio_path = audio_path
+    isolated_vocals_path: Path | None = None
+
+    if transcription_profile == "lyrics_music":
+        update_job_progress(
+            db,
+            job,
+            percent=22,
+            stage="vocal_isolation",
+            message="Отделение вокала от музыки",
+            log=True,
+        )
+        isolated_vocals_path = _isolate_vocals_with_demucs(
+            audio_path=audio_path,
+            temp_dir=temp_dir,
+            db=db,
+            job=job,
+        )
+        transcription_audio_path = isolated_vocals_path
+        add_job_log(db, job.id, "INFO", f"Using isolated vocals for transcription: {transcription_audio_path}")
+
+    progress_callback = _transcription_progress_callback(db, job)
+
+    if transcription_profile == "lyrics_music":
+        result = _transcribe_with_faster_whisper_direct(
+            audio_path=transcription_audio_path,
+            model_name=model_name,
+            language=language,
+            profile=transcription_profile,
+            db=db,
+            job=job,
+            progress_callback=progress_callback,
+        )
+    else:
+        update_job_progress(
+            db,
+            job,
+            percent=25,
+            stage="load_model",
+            message="Загрузка модели транскрибации",
+            log=True,
+        )
+        result = _call_transcribe_media(
+            audio_path=transcription_audio_path,
+            model_name=model_name,
+            language=language,
+            profile=transcription_profile,
+            progress_callback=progress_callback,
+        )
+
+    if _transcript_result_is_empty(result) and transcription_profile in {"music_vocal", "lyrics_music", "noisy_speech"}:
+        add_job_log(
+            db,
+            job.id,
+            "WARNING",
+            "Первый проход вернул 0 сегментов. Запускаем fallback faster-whisper "
+            f"для профиля {transcription_profile}.",
+        )
+        result = _transcribe_with_faster_whisper_direct(
+            audio_path=transcription_audio_path,
+            model_name=model_name,
+            language=language,
+            profile=transcription_profile,
+            db=db,
+            job=job,
+            progress_callback=progress_callback,
+        )
 
     full_text = result.get("text") or result.get("full_text") or ""
     segments = result.get("segments") or []
@@ -628,9 +1133,29 @@ def _run_transcription_job(db: Session, job: Job) -> dict[str, Any]:
     )
     detected_language = result.get("language") or language or "auto"
 
+    quality = _transcript_quality_metrics(
+        full_text=full_text,
+        segments=segments,
+        duration_sec=duration_sec,
+    )
+
     add_job_log(db, job.id, "INFO", f"Detected language: {detected_language}")
     add_job_log(db, job.id, "INFO", f"Segments created: {len(segments)}")
     add_job_log(db, job.id, "INFO", f"Full text length: {len(full_text.strip())}")
+    add_job_log(db, job.id, "INFO", f"Coverage ratio: {quality['coverage_ratio']:.3f}")
+    add_job_log(db, job.id, "INFO", f"Quality status: {quality['quality_status']}")
+
+    transcript_is_empty = not full_text.strip() and not segments
+
+    if transcript_is_empty:
+        failed_message = (
+            "Транскрипт пустой: модель не нашла распознаваемую речь. "
+            "Для музыкальных клипов и вокала повторите задачу с профилем "
+            "«Клип / текст песни» / Lyrics / Music clip. Для шумного аудио используйте "
+            "профиль «Шумная речь» / Noisy speech."
+        )
+        add_job_log(db, job.id, "ERROR", failed_message)
+        raise ValueError(failed_message)
 
     if _is_transcript_suspiciously_short(
         full_text=full_text,
@@ -641,7 +1166,8 @@ def _run_transcription_job(db: Session, job: Job) -> dict[str, Any]:
             "Транскрипт слишком короткий для длительности файла. "
             "Возможные причины: неверно выбран язык, в файле музыка/шум, "
             "VAD отфильтровал речь или модель не смогла распознать аудио. "
-            "Попробуйте повторить транскрибацию с языком Auto или English."
+            "Попробуйте повторить транскрибацию с языком Auto, English, "
+            "Lyrics / Music clip, Music & vocal или Noisy speech."
         )
         add_job_log(db, job.id, "WARNING", warning_message)
         if hasattr(job, "progress_message"):
@@ -650,6 +1176,9 @@ def _run_transcription_job(db: Session, job: Job) -> dict[str, Any]:
             job.last_log_message = warning_message
         db.add(job)
         db.commit()
+
+    if quality.get("quality_warning"):
+        add_job_log(db, job.id, "WARNING", str(quality["quality_warning"]))
 
     update_job_progress(
         db,
@@ -671,12 +1200,40 @@ def _run_transcription_job(db: Session, job: Job) -> dict[str, Any]:
             "language": detected_language if detected_language != "auto" else None,
             "full_text": full_text,
             "duration_sec": duration_sec,
+            "segments_count": quality["segments_count"],
+            "coverage_sec": quality["coverage_sec"],
+            "coverage_ratio": f"{quality['coverage_ratio']:.6f}",
+            "quality_status": quality["quality_status"],
+            "quality_warning": quality["quality_warning"],
         },
     )
     db.commit()
     db.refresh(transcript)
 
     add_job_log(db, job.id, "INFO", f"Transcript created: {transcript.id}")
+
+    if isolated_vocals_path is not None and isolated_vocals_path.exists():
+        vocals_dir = _ensure_directory_path(settings.transcripts_txt_dir).parent / "vocals"
+        vocals_dir.mkdir(parents=True, exist_ok=True)
+        vocals_stem = _safe_export_stem(
+            media_asset.original_name or media_asset.stored_name or media_asset.path,
+            transcript.id,
+        )
+        vocals_target = vocals_dir / f"{vocals_stem}_{job.id[:8]}_vocals.wav"
+        shutil.copyfile(isolated_vocals_path, vocals_target)
+        _add_model_instance(
+            db,
+            ExportArtifact,
+            {
+                "user_id": job.user_id,
+                "transcript_id": transcript.id,
+                "format": "vocals_wav",
+                "path": to_storage_relative_path(vocals_target),
+                "size_bytes": vocals_target.stat().st_size,
+            },
+        )
+        db.commit()
+        add_job_log(db, job.id, "INFO", f"Isolated vocals artifact created: {vocals_target}")
 
     for index, segment in enumerate(segments):
         _add_model_instance(
@@ -748,6 +1305,15 @@ def _run_transcription_job(db: Session, job: Job) -> dict[str, Any]:
                     "duration_sec": duration_sec,
                     "full_text": transcript.full_text,
                     "segments": segments,
+                    "quality": {
+                        "status": quality["quality_status"],
+                        "warning": quality["quality_warning"],
+                        "segments_count": quality["segments_count"],
+                        "text_length": quality["text_length"],
+                        "coverage_sec": quality["coverage_sec"],
+                        "coverage_ratio": quality["coverage_ratio"],
+                    },
+                    "audio_profile": transcription_profile,
                 },
             ),
         ),
@@ -799,6 +1365,8 @@ def _run_transcription_job(db: Session, job: Job) -> dict[str, Any]:
         "media_asset_id": media_asset.id,
         "duration_sec": duration_sec,
         "segments_count": len(segments),
+        "quality_status": quality["quality_status"],
+        "coverage_ratio": quality["coverage_ratio"],
     }
 
 

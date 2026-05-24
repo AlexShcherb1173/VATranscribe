@@ -54,6 +54,74 @@ function asDisplayValue(value: string | number | null | undefined): string {
   return String(value);
 }
 
+function translateJobRuntimeText(
+  value: string | number | null | undefined,
+  t: ReturnType<typeof useI18n>["t"],
+): string {
+  const raw = asDisplayValue(value);
+
+  if (raw === "—") {
+    return raw;
+  }
+
+  const replacements: Array<[RegExp, string]> = [
+    [/^Job started$/i, t.jobs.logJobStarted],
+    [/^Transcription job created$/i, t.jobs.logTranscriptionCreated],
+    [/^Transcription job enqueued$/i, t.jobs.logTranscriptionEnqueued],
+    [/^Подготовка транскрибации$/i, t.jobs.logPreparingTranscription],
+    [/^Извлечение аудио$/i, t.jobs.logExtractingAudio],
+    [/^Загрузка модели транскрибации$/i, t.jobs.logLoadingTranscriptionModel],
+    [/^Отделение вокала от музыки$/i, t.jobs.logVocalIsolation],
+    [/^Сохранение транскрипта$/i, t.jobs.logSavingTranscript],
+    [/^Экспорт TXT\/SRT\/VTT\/JSON$/i, t.jobs.logExportArtifacts],
+    [/^Upload completed$/i, t.jobs.logUploadCompleted],
+    [/^Готово$/i, t.jobs.succeeded],
+    [/^Ошибка$/i, t.jobs.failed],
+    [/^В процессе$/i, t.jobs.running],
+    [/^Активно$/i, t.jobs.active],
+    [/^Транскрипт пустой:.*$/i, t.jobs.logTranscriptEmpty],
+    [/^Транскрипт слишком короткий.*$/i, t.jobs.logTranscriptTooShort],
+    [/^Первый проход вернул 0 сегментов.*$/i, t.jobs.logFirstPassNoSegments],
+    [/^Запускаем fallback.*$/i, t.jobs.logFallbackStarted],
+    [/^Fallback transcription.*$/i, t.jobs.logFallbackStarted],
+    [/^Lyrics \/ Music clip requires.*$/i, "Lyrics / Music clip requires a stronger model. Upgrading model to medium."],
+  ];
+
+  for (const [pattern, replacement] of replacements) {
+    if (pattern.test(raw)) {
+      return replacement;
+    }
+  }
+
+  if (/^Job failed:/i.test(raw)) {
+    const reason = raw.replace(/^Job failed:\s*/i, "");
+    const translatedReason = translateJobRuntimeText(reason, t);
+    return `${t.jobs.logJobFailed}: ${translatedReason}`;
+  }
+
+  return raw
+    .replace(/^Requested format:/i, `${t.jobs.logRequestedFormat}:`)
+    .replace(/^Audio prepared:/i, `${t.jobs.logAudioPrepared}:`)
+    .replace(/^Detected language:/i, `${t.jobs.logDetectedLanguage}:`)
+    .replace(/^Segments created:/i, `${t.jobs.logSegmentsCreated}:`)
+    .replace(/^Full text length:/i, `${t.jobs.logFullTextLength}:`)
+    .replace(/^Coverage ratio:/i, `${t.jobs.logCoverageRatio}:`)
+    .replace(/^Quality status:/i, `${t.jobs.logQualityStatus}:`)
+    .replace(/^Demucs vocals extracted:/i, `${t.jobs.logDemucsVocalsExtracted}:`)
+    .replace(/^Using isolated vocals for transcription:/i, `${t.jobs.logUsingIsolatedVocals}:`)
+    .replace(/^Transcript created:/i, `${t.jobs.logTranscriptCreated}:`)
+    .replace(/^Job retried and enqueued$/i, t.jobs.logJobRetried)
+    .replace(/^Language mode:/i, `${t.jobs.logLanguageMode}:`)
+    .replace(/^Audio profile:/i, `${t.jobs.logAudioProfile}:`)
+    .replace(/^Whisper params:/i, `${t.jobs.logWhisperParams}:`)
+    .replace(/^Model:/i, `${t.jobs.logModel}:`)
+    .replace(/^Source path:/i, `${t.jobs.logSourcePath}:`)
+    .replace(/^Stored media path:/i, `${t.jobs.logStoredMediaPath}:`)
+    .replace(/^Resolved media path:/i, `${t.jobs.logResolvedMediaPath}:`)
+    .replace(/^Preparing transcription for media asset:/i, `${t.jobs.logPreparingMediaAsset}:`)
+    .replace(/^Export artifact is empty:/i, `${t.jobs.logExportArtifactEmpty}:`);
+}
+
 function DetailItem({
   label,
   value,
@@ -244,7 +312,7 @@ export function JobDetailsCard({ job }: JobDetailsCardProps) {
           />
         ) : null}
 
-        <DetailItem label={t.jobs.error} value={job.error_message} wide />
+        <DetailItem label={t.jobs.error} value={translateJobRuntimeText(job.error_message, t)} wide />
       </div>
     </Card>
   );

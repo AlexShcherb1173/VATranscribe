@@ -79,7 +79,72 @@ function minutesSince(value: string | null | undefined): number | null {
   return Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
 }
 
-function formatRelativeTime(value: string | null | undefined): string {
+function translateJobRuntimeText(
+  value: string | null | undefined,
+  t: ReturnType<typeof useI18n>["t"],
+): string {
+  const raw = (value || "").trim();
+
+  if (!raw) {
+    return "—";
+  }
+
+  const replacements: Array<[RegExp, string]> = [
+    [/^Job started$/i, t.jobs.logJobStarted],
+    [/^Transcription job created$/i, t.jobs.logTranscriptionCreated],
+    [/^Transcription job enqueued$/i, t.jobs.logTranscriptionEnqueued],
+    [/^Подготовка транскрибации$/i, t.jobs.logPreparingTranscription],
+    [/^Извлечение аудио$/i, t.jobs.logExtractingAudio],
+    [/^Загрузка модели транскрибации$/i, t.jobs.logLoadingTranscriptionModel],
+    [/^Сохранение транскрипта$/i, t.jobs.logSavingTranscript],
+    [/^Экспорт TXT\/SRT\/VTT\/JSON$/i, t.jobs.logExportArtifacts],
+    [/^Upload completed$/i, t.jobs.logUploadCompleted],
+    [/^Готово$/i, t.jobs.succeeded],
+    [/^Ошибка$/i, t.jobs.failed],
+    [/^В процессе$/i, t.jobs.running],
+    [/^Активно$/i, t.jobs.active],
+    [/^Транскрипт пустой:.*$/i, t.jobs.logTranscriptEmpty],
+    [/^Транскрипт слишком короткий.*$/i, t.jobs.logTranscriptTooShort],
+    [/^Первый проход вернул 0 сегментов.*$/i, t.jobs.logFirstPassNoSegments],
+    [/^Запускаем fallback.*$/i, t.jobs.logFallbackStarted],
+    [/^Fallback transcription.*$/i, t.jobs.logFallbackStarted],
+  ];
+
+  for (const [pattern, replacement] of replacements) {
+    if (pattern.test(raw)) {
+      return replacement;
+    }
+  }
+
+  if (/^Job failed:/i.test(raw)) {
+    const reason = raw.replace(/^Job failed:\s*/i, "");
+    const translatedReason = translateJobRuntimeText(reason, t);
+    return `${t.jobs.logJobFailed}: ${translatedReason}`;
+  }
+
+  return raw
+    .replace(/^Requested format:/i, `${t.jobs.logRequestedFormat}:`)
+    .replace(/^Audio prepared:/i, `${t.jobs.logAudioPrepared}:`)
+    .replace(/^Detected language:/i, `${t.jobs.logDetectedLanguage}:`)
+    .replace(/^Segments created:/i, `${t.jobs.logSegmentsCreated}:`)
+    .replace(/^Full text length:/i, `${t.jobs.logFullTextLength}:`)
+    .replace(/^Transcript created:/i, `${t.jobs.logTranscriptCreated}:`)
+    .replace(/^Job retried and enqueued$/i, t.jobs.logJobRetried)
+    .replace(/^Language mode:/i, `${t.jobs.logLanguageMode}:`)
+    .replace(/^Audio profile:/i, `${t.jobs.logAudioProfile}:`)
+    .replace(/^Whisper params:/i, `${t.jobs.logWhisperParams}:`)
+    .replace(/^Model:/i, `${t.jobs.logModel}:`)
+    .replace(/^Source path:/i, `${t.jobs.logSourcePath}:`)
+    .replace(/^Stored media path:/i, `${t.jobs.logStoredMediaPath}:`)
+    .replace(/^Resolved media path:/i, `${t.jobs.logResolvedMediaPath}:`)
+    .replace(/^Preparing transcription for media asset:/i, `${t.jobs.logPreparingMediaAsset}:`)
+    .replace(/^Export artifact is empty:/i, `${t.jobs.logExportArtifactEmpty}:`);
+}
+
+function formatRelativeTime(
+  value: string | null | undefined,
+  t: ReturnType<typeof useI18n>["t"],
+): string {
   const minutes = minutesSince(value);
 
   if (minutes === null) {
@@ -87,24 +152,27 @@ function formatRelativeTime(value: string | null | undefined): string {
   }
 
   if (minutes < 1) {
-    return "только что";
+    return t.jobs.justNow;
   }
 
   if (minutes < 60) {
-    return `${minutes} мин назад`;
+    return `${minutes} ${t.jobs.minutesAgo}`;
   }
 
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
 
   if (rest === 0) {
-    return `${hours} ч назад`;
+    return `${hours} ${t.jobs.hoursAgo}`;
   }
 
-  return `${hours} ч ${rest} мин назад`;
+  return `${hours} ${t.jobs.hoursAgo} ${rest} ${t.jobs.minutesAgo}`;
 }
 
-function getActivityState(job: JobLike): {
+function getActivityState(
+  job: JobLike,
+  t: ReturnType<typeof useI18n>["t"],
+): {
   label: string;
   className: string;
   title: string;
@@ -116,36 +184,38 @@ function getActivityState(job: JobLike): {
     return {
       label: "—",
       className: "text-slate-500",
-      title: "Задача не активна",
+      title: t.jobs.inactiveTitle,
     };
   }
 
   if (stale) {
     return {
-      label: "Возможно зависло",
+      label: t.jobs.possiblyStale,
       className: "text-amber-300",
-      title: "Heartbeat или последний лог давно не обновлялись",
+      title: t.jobs.staleTitle,
     };
   }
 
   return {
-    label: "Активно",
+    label: t.jobs.active,
     className: "text-emerald-300",
-    title: "Heartbeat обновляется",
+    title: t.jobs.activeTitle,
   };
 }
 
 function ProgressCell({ job }: { job: JobLike }) {
+  const { t } = useI18n();
   const percent = Math.max(0, Math.min(100, Number(job.progress_percent ?? 0)));
-  const currentStep =
+  const rawCurrentStep =
     job.current_step ||
     job.progress_message ||
     job.progress_stage ||
     job.last_log_message ||
     "—";
-  const lastLogMessage = job.last_log_message || currentStep;
+  const currentStep = translateJobRuntimeText(rawCurrentStep, t);
+  const lastLogMessage = translateJobRuntimeText(job.last_log_message || rawCurrentStep, t);
   const lastLogAt = job.last_log_at || job.heartbeat_at || null;
-  const activity = getActivityState(job);
+  const activity = getActivityState(job, t);
 
   return (
     <div className="w-full min-w-0 max-w-[150px]">
@@ -169,7 +239,7 @@ function ProgressCell({ job }: { job: JobLike }) {
         </div>
 
         <div className="truncate text-slate-500" title={lastLogMessage}>
-          Лог: {formatRelativeTime(lastLogAt)}
+          {t.jobs.log}: {formatRelativeTime(lastLogAt, t)}
         </div>
       </div>
     </div>
@@ -196,11 +266,11 @@ export function JobTable({
   const { t } = useI18n();
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
-  const downloadLabel = (t.jobs as any).download || (t.nav as any).downloads || "Скачать";
-  const cancelLabel = (t.jobs as any).cancel || "Отменить";
-  const deleteLabel = (t.jobs as any).deleteJob || (t.common as any).delete || "Удалить";
+  const downloadLabel = (t.jobs as any).download || (t.nav as any).downloads || "Download";
+  const cancelLabel = (t.jobs as any).cancel || "Cancel";
+  const deleteLabel = (t.jobs as any).deleteJob || (t.common as any).delete || "Delete";
   const rightClickHint =
-    (t.jobs as any).rightClickHint || "ПКМ: открыть меню действий";
+    (t.jobs as any).rightClickHint || "Right-click to open actions";
 
   useEffect(() => {
     function closeMenu() {

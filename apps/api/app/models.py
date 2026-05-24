@@ -284,6 +284,7 @@ class Job(Base):
     )
     transcription_model: Mapped[str | None] = mapped_column(String(64), nullable=True)
     transcription_language: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    transcription_profile: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     download_audio: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     download_video: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -384,6 +385,12 @@ class Transcript(Base):
     model_name: Mapped[str] = mapped_column(String(64), nullable=False)
     engine: Mapped[str] = mapped_column(String(64), nullable=False)
     full_text: Mapped[str] = mapped_column(Text, nullable=False)
+    duration_sec: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    segments_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    coverage_sec: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    coverage_ratio: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    quality_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    quality_warning: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

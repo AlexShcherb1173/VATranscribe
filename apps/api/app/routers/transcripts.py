@@ -114,6 +114,12 @@ def _build_transcript_response(
         "model_name": item.model_name,
         "engine": item.engine,
         "full_text": item.full_text,
+        "duration_sec": getattr(item, "duration_sec", None),
+        "segments_count": getattr(item, "segments_count", None),
+        "coverage_sec": getattr(item, "coverage_sec", None),
+        "coverage_ratio": getattr(item, "coverage_ratio", None),
+        "quality_status": getattr(item, "quality_status", None),
+        "quality_warning": getattr(item, "quality_warning", None),
         "created_at": item.created_at,
         "segments": [
             _segment_payload(segment)

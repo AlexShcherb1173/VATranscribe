@@ -1,4 +1,5 @@
 import type { Transcript } from "@/entities/transcript/model/types";
+import { useI18n } from "@/shared/i18n";
 import { formatDate } from "@/shared/lib/format";
 
 function getTranscriptName(transcript: Transcript): string {
@@ -40,37 +41,73 @@ function DetailItem({
   );
 }
 
+function getQualityLabel(status: string | null | undefined, t: any): string {
+  const normalized = (status || "").toLowerCase();
+
+  if (normalized === "good") return t.transcriptions.qualityGood;
+  if (normalized === "partial") return t.transcriptions.qualityPartial;
+  if (normalized === "low_quality") return t.transcriptions.qualityLow;
+  if (normalized === "empty") return t.transcriptions.qualityEmpty;
+
+  return status || "—";
+}
+
+function getCoverageValue(transcript: Transcript): string {
+  const raw = transcript.coverage_ratio;
+  const numeric = typeof raw === "number" ? raw : Number(raw || 0);
+
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return "—";
+  }
+
+  return `${Math.round(numeric * 100)}%`;
+}
+
 export function TranscriptCard({ transcript }: { transcript: Transcript }) {
+  const { t } = useI18n();
+
   return (
     <section className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
       <div className="mb-5 min-w-0">
-        <h2 className="text-lg font-semibold text-white">Транскрипт</h2>
+        <h2 className="text-lg font-semibold text-white">{t.transcriptions.transcript}</h2>
 
         <div className="mt-2 min-w-0 break-words text-xl font-semibold text-white [overflow-wrap:anywhere]">
           {getTranscriptName(transcript)}
         </div>
 
         <div className="mt-2 break-all text-xs text-slate-500">
-          ID: {transcript.id}
+          {t.transcriptions.id}: {transcript.id}
         </div>
       </div>
 
       <div className="grid min-w-0 gap-5 sm:grid-cols-3">
-        <DetailItem label="Язык" value={transcript.language} />
-        <DetailItem label="Модель" value={transcript.model_name} />
-        <DetailItem label="Движок" value={transcript.engine} />
-        <DetailItem label="ID задачи" value={transcript.job_id} />
-        <DetailItem label="Исходный файл" value={getSourceMediaName(transcript)} />
-        <DetailItem label="ID медиафайла" value={transcript.media_asset_id} />
+        <DetailItem label={t.transcriptions.language} value={transcript.language} />
+        <DetailItem label={t.transcriptions.model} value={transcript.model_name} />
+        <DetailItem label={t.transcriptions.engine} value={transcript.engine} />
+        <DetailItem label={t.transcriptions.jobId} value={transcript.job_id} />
+        <DetailItem label={t.transcriptions.sourceFile} value={getSourceMediaName(transcript)} />
+        <DetailItem label={t.transcriptions.mediaAssetId} value={transcript.media_asset_id} />
         <DetailItem
-          label="Создано"
+          label={t.transcriptions.created}
           value={transcript.created_at ? formatDate(transcript.created_at) : null}
         />
+        <DetailItem label={t.transcriptions.quality} value={getQualityLabel(transcript.quality_status, t)} />
+        <DetailItem label={t.transcriptions.coverage} value={getCoverageValue(transcript)} />
+        <DetailItem label={t.transcriptions.segmentsCount} value={transcript.segments_count ?? transcript.segments?.length ?? null} />
       </div>
+
+      {transcript.quality_warning ? (
+        <div className="mt-5 rounded-2xl border border-amber-300/30 bg-amber-400/10 p-4 text-sm leading-6 text-amber-100">
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-200/80">
+            {t.transcriptions.qualityWarning}
+          </div>
+          {transcript.quality_warning}
+        </div>
+      ) : null}
 
       <div className="mt-6">
         <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Полный текст
+          {t.transcriptions.fullText}
         </div>
 
         <div className="max-h-[360px] min-w-0 overflow-auto whitespace-pre-wrap rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm leading-6 text-slate-100">

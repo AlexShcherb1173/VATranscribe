@@ -22,9 +22,18 @@ type TranscriptionSchemeId = "fast" | "standard" | "accurate" | "content";
 
 type TranscriptionLanguageCode = "auto" | "ru" | "en" | "de" | "tr" | "es" | "fr";
 
+type TranscriptionAudioProfileCode = "speech" | "music_vocal" | "lyrics_music" | "noisy_speech" | "meeting" | "lecture";
+
 type TranscriptionLanguageOption = {
   code: TranscriptionLanguageCode;
   apiValue: string | null;
+  getLabel: (language: "en" | "ru") => string;
+  getDescription: (language: "en" | "ru") => string;
+};
+
+type TranscriptionAudioProfileOption = {
+  code: TranscriptionAudioProfileCode;
+  apiValue: string;
   getLabel: (language: "en" | "ru") => string;
   getDescription: (language: "en" | "ru") => string;
 };
@@ -76,6 +85,63 @@ const TRANSCRIPTION_LANGUAGES: TranscriptionLanguageOption[] = [
     apiValue: "fr",
     getLabel: (language) => (language === "ru" ? "Французский" : "French"),
     getDescription: (language) => (language === "ru" ? "Для французской речи." : "For French speech."),
+  },
+];
+
+const TRANSCRIPTION_AUDIO_PROFILES: TranscriptionAudioProfileOption[] = [
+  {
+    code: "speech",
+    apiValue: "speech",
+    getLabel: (language) => (language === "ru" ? "Обычная речь" : "Speech"),
+    getDescription: (language) =>
+      language === "ru"
+        ? "Для интервью, обычных видео, разговоров и чистой речи. VAD включён."
+        : "For interviews, regular videos, calls and clear speech. VAD is enabled.",
+  },
+  {
+    code: "music_vocal",
+    apiValue: "music_vocal",
+    getLabel: (language) => (language === "ru" ? "Музыка и вокал" : "Music & vocal"),
+    getDescription: (language) =>
+      language === "ru"
+        ? "Для live-видео и вокала без отделения дорожек. VAD отключается."
+        : "For live videos and vocals without source separation. VAD is disabled.",
+  },
+  {
+    code: "lyrics_music",
+    apiValue: "lyrics_music",
+    getLabel: (language) => (language === "ru" ? "Клип / текст песни" : "Lyrics / music clip"),
+    getDescription: (language) =>
+      language === "ru"
+        ? "Продвинутый режим для песен: отделяет вокал через Demucs, нормализует звук и затем распознаёт текст."
+        : "Advanced song mode: isolates vocals with Demucs, normalizes audio and then transcribes lyrics.",
+  },
+  {
+    code: "noisy_speech",
+    apiValue: "noisy_speech",
+    getLabel: (language) => (language === "ru" ? "Шумная речь" : "Noisy speech"),
+    getDescription: (language) =>
+      language === "ru"
+        ? "Для плохого звука, фонового шума и записей с паузами. VAD работает мягче."
+        : "For poor audio, background noise and recordings with pauses. VAD uses softer settings.",
+  },
+  {
+    code: "meeting",
+    apiValue: "speech",
+    getLabel: (language) => (language === "ru" ? "Созвон" : "Meeting"),
+    getDescription: (language) =>
+      language === "ru"
+        ? "Для созвонов, интервью и рабочих обсуждений."
+        : "For calls, interviews and work discussions.",
+  },
+  {
+    code: "lecture",
+    apiValue: "speech",
+    getLabel: (language) => (language === "ru" ? "Лекция" : "Lecture"),
+    getDescription: (language) =>
+      language === "ru"
+        ? "Для длинных учебных записей и монотонной речи."
+        : "For long educational recordings and lecture-style speech.",
   },
 ];
 
@@ -220,10 +286,12 @@ export function FilesPage() {
       file,
       scheme,
       transcriptionLanguage,
+      audioProfile,
     }: {
       file: MediaFile;
       scheme: TranscriptionScheme;
       transcriptionLanguage: TranscriptionLanguageOption;
+      audioProfile: TranscriptionAudioProfileOption;
     }) =>
       createTranscriptionJob({
         media_asset_id: file.id,
@@ -231,6 +299,7 @@ export function FilesPage() {
         language: transcriptionLanguage.apiValue,
         export_formats: scheme.exportFormats,
         transcription_scheme: scheme.id,
+        audio_profile: audioProfile.apiValue,
         content_profile: scheme.generateContentPack ? "content_pack" : null,
         generate_summary: scheme.generateContentPack || undefined,
         generate_content_pack: scheme.generateContentPack || undefined,
@@ -356,10 +425,11 @@ export function FilesPage() {
     file: MediaFile,
     scheme: TranscriptionScheme,
     transcriptionLanguage: TranscriptionLanguageOption,
+    audioProfile: TranscriptionAudioProfileOption,
   ) {
     setSelectedFile(file.id);
     setSchemeDialogFile(null);
-    transcribeFileMutation.mutate({ file, scheme, transcriptionLanguage });
+    transcribeFileMutation.mutate({ file, scheme, transcriptionLanguage, audioProfile });
   }
 
   function handleDeleteFile(file: MediaFile) {
@@ -704,16 +774,19 @@ function TranscriptionSchemeDialog({
     file: MediaFile,
     scheme: TranscriptionScheme,
     transcriptionLanguage: TranscriptionLanguageOption,
+    audioProfile: TranscriptionAudioProfileOption,
   ) => void;
 }) {
   const { language, t } = useI18n();
   const [selectedSchemeId, setSelectedSchemeId] = useState<TranscriptionSchemeId>("standard");
   const [selectedLanguageCode, setSelectedLanguageCode] = useState<TranscriptionLanguageCode>("auto");
+  const [selectedAudioProfileCode, setSelectedAudioProfileCode] = useState<TranscriptionAudioProfileCode>("speech");
 
   useEffect(() => {
     if (file) {
       setSelectedSchemeId("standard");
       setSelectedLanguageCode("auto");
+      setSelectedAudioProfileCode("speech");
     }
   }, [file?.id]);
 
@@ -727,6 +800,10 @@ function TranscriptionSchemeDialog({
   const selectedTranscriptionLanguage =
     TRANSCRIPTION_LANGUAGES.find((item) => item.code === selectedLanguageCode) ??
     TRANSCRIPTION_LANGUAGES[0];
+  const selectedAudioProfile =
+    TRANSCRIPTION_AUDIO_PROFILES.find((item) => item.code === selectedAudioProfileCode) ??
+    TRANSCRIPTION_AUDIO_PROFILES[0];
+  const effectiveModelName = selectedScheme.modelName;
 
   const fileName = file.stored_name || file.original_name || file.id;
   const title = language === "ru" ? "Выберите схему транскрибации" : "Choose transcription scheme";
@@ -734,16 +811,10 @@ function TranscriptionSchemeDialog({
     language === "ru"
       ? "Схема влияет на модель распознавания, скорость обработки и качество итогового текста/субтитров."
       : "The scheme affects recognition model, processing speed and final transcript/subtitle quality.";
-  const resultLabel = language === "ru" ? "Что изменится в результате" : "Result difference";
-  const bestForLabel = language === "ru" ? "Лучше для" : "Best for";
-  const tradeoffLabel = language === "ru" ? "Компромисс" : "Trade-off";
   const modelLabel = language === "ru" ? "Модель" : "Model";
   const formatsLabel = language === "ru" ? "Экспорт" : "Exports";
   const languageLabel = language === "ru" ? "Язык распознавания" : "Recognition language";
-  const languageHint =
-    language === "ru"
-      ? "Auto рекомендуется по умолчанию. Принудительный язык выбирайте только если вы уверены в языке речи."
-      : "Auto is recommended by default. Force a language only when you are sure about the speech language.";
+  const audioProfileLabel = language === "ru" ? "Профиль аудио" : "Audio profile";
   const cancelLabel = t.common.cancel || (language === "ru" ? "Отмена" : "Cancel");
   const startLabel = pending
     ? t.common.processing
@@ -753,7 +824,7 @@ function TranscriptionSchemeDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -763,12 +834,12 @@ function TranscriptionSchemeDialog({
         }
       }}
     >
-      <div className="w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 shadow-2xl shadow-black/60">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-800 p-6">
+      <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 shadow-2xl shadow-black/60">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-800 p-4 sm:p-5">
           <div className="min-w-0">
-            <div className="text-xl font-semibold text-white">{title}</div>
-            <div className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">{description}</div>
-            <div className="mt-3 truncate text-xs text-slate-500" title={fileName}>
+            <div className="text-lg font-semibold text-white">{title}</div>
+            <div className="mt-1 max-w-3xl text-xs leading-5 text-slate-300">{description}</div>
+            <div className="mt-2 truncate text-xs text-slate-500" title={fileName}>
               {fileName}
             </div>
           </div>
@@ -784,8 +855,8 @@ function TranscriptionSchemeDialog({
           </button>
         </div>
 
-        <div className="grid gap-5 p-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-          <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid flex-1 gap-4 overflow-y-auto p-4 sm:p-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
+          <div className="grid content-start gap-3 sm:grid-cols-2">
             {TRANSCRIPTION_SCHEMES.map((scheme) => {
               const selected = selectedSchemeId === scheme.id;
 
@@ -796,7 +867,7 @@ function TranscriptionSchemeDialog({
                   disabled={pending}
                   onClick={() => setSelectedSchemeId(scheme.id)}
                   className={[
-                    "min-h-44 rounded-2xl border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-cyan-300/70 disabled:cursor-not-allowed disabled:opacity-70",
+                    "min-h-[132px] rounded-2xl border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-cyan-300/70 disabled:cursor-not-allowed disabled:opacity-70",
                     selected
                       ? "border-cyan-300/80 bg-cyan-400/10 shadow-[0_0_0_1px_rgba(103,232,249,0.25)]"
                       : "border-slate-800 bg-slate-900/60 hover:border-cyan-400/60 hover:bg-cyan-400/5",
@@ -821,7 +892,7 @@ function TranscriptionSchemeDialog({
                     </span>
                   </div>
 
-                  <div className="mt-4 text-sm leading-6 text-slate-300">
+                  <div className="mt-3 text-sm leading-5 text-slate-300">
                     {scheme.getResult(language)}
                   </div>
                 </button>
@@ -829,7 +900,7 @@ function TranscriptionSchemeDialog({
             })}
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
             <div className="text-lg font-semibold text-white">
               {selectedScheme.getTitle(language)}
             </div>
@@ -837,7 +908,7 @@ function TranscriptionSchemeDialog({
               {selectedScheme.getSubtitle(language)}
             </div>
 
-            <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+            <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-3">
               <label className="text-xs uppercase tracking-wide text-slate-500" htmlFor="transcription-language-select">
                 {languageLabel}
               </label>
@@ -846,7 +917,7 @@ function TranscriptionSchemeDialog({
                 value={selectedLanguageCode}
                 disabled={pending}
                 onChange={(event) => setSelectedLanguageCode(event.target.value as TranscriptionLanguageCode)}
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-sm font-semibold text-slate-100 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-300/30 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-semibold text-slate-100 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-300/30 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {TRANSCRIPTION_LANGUAGES.map((item) => (
                   <option key={item.code} value={item.code}>
@@ -857,31 +928,52 @@ function TranscriptionSchemeDialog({
               <div className="mt-2 text-xs leading-5 text-slate-400">
                 {selectedTranscriptionLanguage.getDescription(language)}
               </div>
-              <div className="mt-2 text-xs leading-5 text-slate-500">
-                {languageHint}
+            </div>
+
+            <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-950/50 p-3">
+              <label className="text-xs uppercase tracking-wide text-slate-500" htmlFor="transcription-audio-profile-select">
+                {audioProfileLabel}
+              </label>
+              <select
+                id="transcription-audio-profile-select"
+                value={selectedAudioProfileCode}
+                disabled={pending}
+                onChange={(event) => {
+                  const nextProfile = event.target.value as TranscriptionAudioProfileCode;
+                  setSelectedAudioProfileCode(nextProfile);
+
+                  if (nextProfile === "lyrics_music" && selectedSchemeId !== "accurate") {
+                    setSelectedSchemeId("fast");
+                  }
+                }}
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-semibold text-slate-100 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-300/30 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {TRANSCRIPTION_AUDIO_PROFILES.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.getLabel(language)}
+                  </option>
+                ))}
+              </select>
+              <div className="mt-2 text-xs leading-5 text-slate-400">
+                {selectedAudioProfile.getDescription(language)}
               </div>
             </div>
 
-            <div className="mt-5 space-y-4 text-sm leading-6 text-slate-300">
-              <InfoBlock label={resultLabel} value={selectedScheme.getResult(language)} />
-              <InfoBlock label={bestForLabel} value={selectedScheme.getBestFor(language)} />
-              <InfoBlock label={tradeoffLabel} value={selectedScheme.getTradeoff(language)} />
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <InfoPill label={modelLabel} value={selectedScheme.modelName} />
-                <InfoPill label={formatsLabel} value={selectedScheme.exportFormats.join(", ")} />
-                <InfoPill label={languageLabel} value={selectedTranscriptionLanguage.getLabel(language)} />
-              </div>
+            <div className="mt-4 grid gap-3 text-sm leading-5 text-slate-300 sm:grid-cols-2">
+              <InfoPill label={modelLabel} value={effectiveModelName} />
+              <InfoPill label={formatsLabel} value={selectedScheme.exportFormats.join(", ")} />
+              <InfoPill label={languageLabel} value={selectedTranscriptionLanguage.getLabel(language)} />
+              <InfoPill label={audioProfileLabel} value={selectedAudioProfile.getLabel(language)} />
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col-reverse gap-3 border-t border-slate-800 p-6 sm:flex-row sm:justify-end">
+        <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-slate-800 bg-slate-950 p-4 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={onClose}
             disabled={pending}
-            className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-cyan-300/70 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl border border-slate-700 px-5 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-cyan-300/70 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {cancelLabel}
           </button>
@@ -889,8 +981,15 @@ function TranscriptionSchemeDialog({
           <button
             type="button"
             disabled={pending}
-            onClick={() => onSubmit(file, selectedScheme, selectedTranscriptionLanguage)}
-            className="rounded-xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() =>
+              onSubmit(
+                file,
+                selectedScheme,
+                selectedTranscriptionLanguage,
+                selectedAudioProfile,
+              )
+            }
+            className="rounded-xl bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {startLabel}
           </button>
@@ -900,14 +999,6 @@ function TranscriptionSchemeDialog({
   );
 }
 
-function InfoBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-1 text-slate-200">{value}</div>
-    </div>
-  );
-}
 
 function InfoPill({ label, value }: { label: string; value: string }) {
   return (

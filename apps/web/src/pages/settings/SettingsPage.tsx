@@ -39,11 +39,11 @@ export function SettingsPage() {
     try {
       const data = await uploadYoutubeCookies(file);
       setStatus(data);
-      toastSuccess("Cookies YouTube", "Файл cookies успешно загружен.");
+      toastSuccess(t.settings.youtubeCookies, t.settings.cookiesUploadSuccess);
     } catch (error: any) {
       toastError(
-        "Cookies YouTube",
-        error?.response?.data?.detail || "Не удалось загрузить cookies.txt",
+        t.settings.youtubeCookies,
+        error?.response?.data?.detail || t.settings.cookiesUploadFailed,
       );
     } finally {
       setIsLoading(false);
@@ -57,11 +57,11 @@ export function SettingsPage() {
     try {
       const data = await deleteYoutubeCookies();
       setStatus(data);
-      toastSuccess("Cookies YouTube", "Файл cookies удалён.");
+      toastSuccess(t.settings.youtubeCookies, t.settings.cookiesDeleteSuccess);
     } catch (error: any) {
       toastError(
-        "Cookies YouTube",
-        error?.response?.data?.detail || "Не удалось удалить cookies.txt",
+        t.settings.youtubeCookies,
+        error?.response?.data?.detail || t.settings.cookiesDeleteFailed,
       );
     } finally {
       setIsLoading(false);
@@ -75,31 +75,30 @@ export function SettingsPage() {
       <div className="grid gap-6">
         <Card className="p-6">
           <div className="text-lg font-medium text-white">
-            YouTube cookies
+            {t.settings.youtubeCookies}
           </div>
 
           <p className="mt-2 max-w-2xl text-sm text-slate-400">
-            Если YouTube требует подтверждение “Sign in to confirm you’re not a bot”,
-            загрузи сюда cookies.txt, экспортированный из браузера.
+            {t.settings.youtubeCookiesDescription}
           </p>
 
           <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-300">
             <div>
-              Статус:{" "}
+              {t.settings.cookiesStatus}:{" "}
               <span className={status?.exists ? "text-emerald-300" : "text-rose-300"}>
-                {status?.exists ? "cookies.txt загружен" : "cookies.txt не загружен"}
+                {status?.exists ? t.settings.cookiesUploaded : t.settings.cookiesNotUploaded}
               </span>
             </div>
 
             <div className="mt-2">
-              Путь:{" "}
+              {t.settings.cookiesPath}:{" "}
               <span className="text-slate-400">
                 {status?.path || "—"}
               </span>
             </div>
 
             <div className="mt-2">
-              Размер:{" "}
+              {t.settings.cookiesSize}:{" "}
               <span className="text-slate-400">
                 {status?.size_bytes ? `${status.size_bytes} bytes` : "—"}
               </span>
@@ -115,7 +114,7 @@ export function SettingsPage() {
                 onChange={handleUpload}
                 className="hidden"
               />
-              Загрузить youtube.txt
+              {t.settings.uploadYoutubeTxt}
             </label>
 
             <button
@@ -124,7 +123,7 @@ export function SettingsPage() {
               onClick={handleDelete}
               className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-rose-400 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Удалить cookies
+              {t.settings.deleteCookies}
             </button>
           </div>
         </Card>

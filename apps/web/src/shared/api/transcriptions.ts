@@ -124,7 +124,7 @@ export function getExportArtifactFileName(
   sourceName?: string | null,
 ): string {
   const normalizedFormat = artifact.format?.toLowerCase() || "txt";
-  const ext = normalizedFormat === "subtitle_txt" ? "txt" : normalizedFormat;
+  const ext = normalizedFormat === "subtitle_txt" ? "txt" : normalizedFormat === "vocals_wav" ? "wav" : normalizedFormat;
   const baseName = (sourceName || "transcript")
     .replace(/\.[a-z0-9]{1,8}$/i, "")
     .replace(/[^\p{L}\p{N}_\- .]+/gu, "")
@@ -163,6 +163,7 @@ export type CreateTranscriptionJobPayload = {
   export_formats?: Array<"txt" | "srt" | "vtt" | "json">;
   transcription_scheme?: string | null;
   content_profile?: string | null;
+  audio_profile?: string | null;
   generate_summary?: boolean;
   generate_content_pack?: boolean;
 };

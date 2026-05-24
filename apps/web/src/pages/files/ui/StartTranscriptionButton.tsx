@@ -14,6 +14,7 @@ type StartTranscriptionButtonProps = {
   onSuccess?: (job: any) => void;
   modelName?: string;
   language?: string | null;
+  audioProfile?: string | null;
 };
 
 export function StartTranscriptionButton({
@@ -24,6 +25,7 @@ export function StartTranscriptionButton({
   onSuccess,
   modelName = "medium",
   language = null,
+  audioProfile = null,
 }: StartTranscriptionButtonProps) {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -35,6 +37,7 @@ export function StartTranscriptionButton({
         media_asset_id: mediaAssetId,
         model_name: modelName,
         language,
+        audio_profile: audioProfile,
         export_formats: ["txt", "srt", "vtt", "json"],
       }),
     onSuccess: async (data: any) => {

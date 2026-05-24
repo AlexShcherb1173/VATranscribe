@@ -109,7 +109,12 @@ def _is_stale_job(job: Job) -> bool:
     if reference is None:
         return False
 
-    return _utcnow() - reference > timedelta(minutes=5)
+    stale_after = timedelta(minutes=5)
+
+    if (getattr(job, "transcription_profile", None) or "").lower() == "lyrics_music":
+        stale_after = timedelta(minutes=30)
+
+    return _utcnow() - reference > stale_after
 
 
 def _serialize_media_asset(media_asset: MediaAsset | None) -> dict | None:
@@ -170,6 +175,7 @@ def _serialize_job(job: Job) -> dict:
         "download_video": job.download_video,
         "transcription_model": job.transcription_model,
         "transcription_language": job.transcription_language,
+        "transcription_profile": getattr(job, "transcription_profile", None),
         "error_message": job.error_message,
         "progress_percent": job.progress_percent,
         "progress_stage": job.progress_stage,

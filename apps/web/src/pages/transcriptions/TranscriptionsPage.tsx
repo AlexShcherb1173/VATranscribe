@@ -15,20 +15,13 @@ import {
   getExportArtifactFileName,
   saveBlob,
 } from "@/shared/api/transcriptions";
+import { useI18n } from "@/shared/i18n";
 import { useTranscriptDetailsQuery } from "@/shared/hooks/useTranscriptDetailsQuery";
 import { useTranscriptsQuery } from "@/shared/hooks/useTranscriptsQuery";
 import { Card } from "@/shared/ui/Card";
 import { PageHeader } from "@/shared/ui/PageHeader";
 import { Spinner } from "@/shared/ui/Spinner";
 import { toastError, toastSuccess } from "@/shared/ui/toast";
-
-function notifySuccess(title: string, message?: string) {
-  toastSuccess(title, message);
-}
-
-function notifyError(title: string, message?: string) {
-  toastError(title, message);
-}
 
 function getTranscriptName(transcript: Transcript): string {
   return (
@@ -47,6 +40,7 @@ function findExport(transcript: Transcript, format: string): ExportArtifact | un
 }
 
 export function TranscriptionsPage() {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
 
   const [selectedTranscriptId, setSelectedTranscriptId] = useState<string | null>(null);
@@ -80,10 +74,10 @@ export function TranscriptionsPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["transcripts"] });
       await queryClient.invalidateQueries({ queryKey: ["transcript"] });
-      notifySuccess("Удалено", "Результат транскрибации удалён.");
+      toastSuccess(t.transcriptions.deletedTitle, t.transcriptions.deletedTranscriptMessage);
     },
     onError: (error: any) => {
-      notifyError("Ошибка", error?.message || "Не удалось удалить результат.");
+      toastError(t.common.error, error?.message || t.transcriptions.deleteTranscriptFailed);
     },
   });
 
@@ -92,10 +86,10 @@ export function TranscriptionsPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["transcripts"] });
       await queryClient.invalidateQueries({ queryKey: ["transcript", selectedTranscriptId] });
-      notifySuccess("Удалено", "Файл результата удалён.");
+      toastSuccess(t.transcriptions.deletedTitle, t.transcriptions.deletedFileMessage);
     },
     onError: (error: any) => {
-      notifyError("Ошибка", error?.message || "Не удалось удалить файл.");
+      toastError(t.common.error, error?.message || t.transcriptions.deleteFileFailed);
     },
   });
 
@@ -110,10 +104,10 @@ export function TranscriptionsPage() {
     onSuccess: async (_result, variables) => {
       await queryClient.invalidateQueries({ queryKey: ["transcripts"] });
       await queryClient.invalidateQueries({ queryKey: ["transcript", variables.transcriptId] });
-      notifySuccess("Субтитры созданы", "Файлы SRT/VTT/TXT обновлены и доступны для скачивания.");
+      toastSuccess(t.transcriptions.subtitlesCreatedTitle, t.transcriptions.subtitlesCreatedMessage);
     },
     onError: (error: any) => {
-      notifyError("Ошибка", error?.message || "Не удалось создать субтитры.");
+      toastError(t.common.error, error?.message || t.transcriptions.createSubtitlesFailed);
     },
   });
 
@@ -126,7 +120,7 @@ export function TranscriptionsPage() {
       const blob = await downloadExportArtifact(artifact);
       saveBlob(blob, getExportArtifactFileName(artifact, getTranscriptName(transcript)));
     } catch (error: any) {
-      notifyError("Ошибка", error?.message || "Не удалось скачать файл.");
+      toastError(t.common.error, error?.message || t.transcriptions.downloadFileFailed);
     }
   }
 
@@ -134,7 +128,10 @@ export function TranscriptionsPage() {
     const artifact = findExport(transcript, format);
 
     if (!artifact) {
-      notifyError("Файл не найден", `Для этого результата нет файла ${format.toUpperCase()}.`);
+      toastError(
+        t.transcriptions.fileNotFound,
+        t.transcriptions.missingFormat.replace("{format}", format.toUpperCase()),
+      );
       return;
     }
 
@@ -143,7 +140,7 @@ export function TranscriptionsPage() {
 
   function handleDeleteTranscript(transcript: Transcript) {
     const confirmed = window.confirm(
-      `Удалить результат "${getTranscriptName(transcript)}" и все файлы экспорта?`,
+      t.transcriptions.deleteTranscriptConfirm.replace("{name}", getTranscriptName(transcript)),
     );
 
     if (!confirmed) {
@@ -154,7 +151,9 @@ export function TranscriptionsPage() {
   }
 
   function handleDeleteExport(artifact: ExportArtifact) {
-    const confirmed = window.confirm(`Удалить файл ${artifact.format.toUpperCase()}?`);
+    const confirmed = window.confirm(
+      t.transcriptions.deleteFileConfirm.replace("{format}", artifact.format.toUpperCase()),
+    );
 
     if (!confirmed) {
       return;
@@ -166,14 +165,14 @@ export function TranscriptionsPage() {
   return (
     <div className="min-w-0 space-y-6">
       <PageHeader
-        title="Транскрипты"
-        description="Результаты транскрибации."
+        title={t.transcriptions.title}
+        description={t.transcriptions.description}
       />
 
       {isLoading ? (
         <div className="flex items-center gap-3 text-slate-300">
           <Spinner />
-          <span>Загрузка результатов...</span>
+          <span>{t.transcriptions.loadingResults}</span>
         </div>
       ) : (
         <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
@@ -189,11 +188,11 @@ export function TranscriptionsPage() {
             ) : (
               <Card className="p-8 text-center">
                 <div className="text-lg font-semibold text-white">
-                  Результатов пока нет
+                  {t.transcriptions.noResultsTitle}
                 </div>
 
                 <p className="mt-3 text-sm text-slate-400">
-                  Создай транскрибацию из файла или ссылки.
+                  {t.transcriptions.noResultsDescription}
                 </p>
               </Card>
             )}
@@ -204,7 +203,7 @@ export function TranscriptionsPage() {
               <Card className="p-5">
                 <div className="flex items-center gap-3 text-slate-300">
                   <Spinner />
-                  <span>Загрузка результата...</span>
+                  <span>{t.transcriptions.loadingResult}</span>
                 </div>
               </Card>
             ) : selectedTranscript ? (
@@ -230,7 +229,7 @@ export function TranscriptionsPage() {
               </>
             ) : (
               <Card className="p-5 text-sm text-slate-400">
-                Выбери результат слева.
+                {t.transcriptions.selectResult}
               </Card>
             )}
           </aside>

@@ -1,6 +1,7 @@
 import { useEffect, useState, type MouseEvent } from "react";
 
 import type { ExportArtifact, Transcript } from "@/entities/transcript/model/types";
+import { useI18n } from "@/shared/i18n";
 import { formatBytes } from "@/shared/lib/format";
 
 type ContextMenuState = {
@@ -30,6 +31,7 @@ export function TranscriptExports({
   onDownloadExport,
   onDeleteExport,
 }: TranscriptExportsProps) {
+  const { t } = useI18n();
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const exports = exportsList || transcript.exports || [];
 
@@ -60,14 +62,14 @@ export function TranscriptExports({
     <section className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
       <div className="mb-4 flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-white">Файлы</h2>
+          <h2 className="text-lg font-semibold text-white">{t.transcriptions.files}</h2>
           <p className="mt-1 text-xs text-slate-500">
-            Скачать созданные файлы результата
+            {t.transcriptions.downloadGeneratedResultFiles}
           </p>
         </div>
 
         <span className="shrink-0 rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-400">
-          {exports.length} элемент(ов)
+          {exports.length} {t.transcriptions.items}
         </span>
       </div>
 
@@ -77,7 +79,7 @@ export function TranscriptExports({
             key={artifact.id}
             onContextMenu={(event) => handleContextMenu(event, artifact)}
             className="min-w-0 rounded-2xl border border-slate-800 bg-slate-950/50 p-4"
-            title="ПКМ — открыть действия"
+            title={t.transcriptions.contextMenuHint}
           >
             <div className="flex min-w-0 items-center justify-between gap-4">
               <div className="min-w-0">
@@ -96,7 +98,7 @@ export function TranscriptExports({
                 </div>
 
                 <div className="mt-1 truncate text-xs text-slate-600">
-                  ID: {artifact.id}
+                  {t.transcriptions.id}: {artifact.id}
                 </div>
               </div>
 
@@ -105,7 +107,7 @@ export function TranscriptExports({
                 onClick={() => onDownloadExport(transcript, artifact)}
                 className="shrink-0 rounded-xl bg-cyan-500 px-4 py-2 text-xs font-semibold uppercase text-slate-950 transition hover:bg-cyan-400"
               >
-                Скачать
+                {t.transcriptions.download}
               </button>
             </div>
           </div>
@@ -113,7 +115,7 @@ export function TranscriptExports({
 
         {!exports.length ? (
           <div className="rounded-2xl border border-dashed border-slate-800 p-6 text-sm text-slate-400">
-            Файлы результата пока не созданы.
+            {t.transcriptions.resultFilesEmpty}
           </div>
         ) : null}
       </div>
@@ -132,7 +134,7 @@ export function TranscriptExports({
             }}
             className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-cyan-200 transition hover:bg-cyan-400/10"
           >
-            Скачать
+            {t.transcriptions.download}
           </button>
 
           <button
@@ -143,7 +145,7 @@ export function TranscriptExports({
             }}
             className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-rose-200 transition hover:bg-rose-500/10"
           >
-            Удалить файл
+            {t.transcriptions.deleteFile}
           </button>
         </div>
       ) : null}

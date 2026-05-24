@@ -45,6 +45,8 @@ services:
       PYTHONUNBUFFERED: "1"
       PYTHONDONTWRITEBYTECODE: "1"
       C_FORCE_ROOT: "true"
+      XDG_CACHE_HOME: "/app/storage/cache"
+      TORCH_HOME: "/app/storage/cache/torch"
 
       # yt-dlp / YouTube options
       YT_DLP_PROXY_URL: ${YT_DLP_PROXY_URL:-}

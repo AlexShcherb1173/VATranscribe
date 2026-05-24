@@ -32,6 +32,12 @@ export type Transcript = {
   model_name: string;
   engine: string;
   full_text: string;
+  duration_sec?: number | null;
+  segments_count?: number | null;
+  coverage_sec?: number | null;
+  coverage_ratio?: string | number | null;
+  quality_status?: "good" | "partial" | "low_quality" | "empty" | string | null;
+  quality_warning?: string | null;
   created_at: string;
   segments?: TranscriptSegment[];
   exports?: ExportArtifact[];

@@ -48,6 +48,7 @@ export type Job = {
   download_video: boolean;
   transcription_model: string | null;
   transcription_language: string | null;
+  transcription_profile?: string | null;
   error_message: string | null;
   progress_percent?: number | null;
   progress_stage?: string | null;

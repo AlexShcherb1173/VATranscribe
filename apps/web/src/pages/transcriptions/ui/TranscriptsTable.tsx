@@ -1,6 +1,7 @@
 import { useEffect, useState, type MouseEvent } from "react";
 
 import type { Transcript } from "@/entities/transcript/model/types";
+import { useI18n } from "@/shared/i18n";
 import { formatDate } from "@/shared/lib/format";
 
 type ContextMenuState = {
@@ -43,6 +44,7 @@ export function TranscriptsTable({
   onDownloadExport,
   onDeleteTranscript,
 }: TranscriptsTableProps) {
+  const { t } = useI18n();
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   useEffect(() => {
@@ -90,18 +92,18 @@ export function TranscriptsTable({
   return (
     <div className="relative min-w-0 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/70">
       <div className="border-b border-slate-800 px-4 py-3">
-        <h2 className="text-base font-semibold text-white">Результаты</h2>
+        <h2 className="text-base font-semibold text-white">{t.transcriptions.resultsTitle}</h2>
       </div>
 
       <div className="max-w-full overflow-x-auto">
         <table className="w-full min-w-[760px] table-fixed text-sm">
           <thead className="bg-slate-900 text-left text-slate-400">
             <tr>
-              <th className="w-[44%] px-4 py-3">Результат</th>
-              <th className="w-[10%] px-4 py-3">Язык</th>
-              <th className="w-[14%] px-4 py-3">Модель</th>
-              <th className="w-[16%] px-4 py-3">Движок</th>
-              <th className="w-[16%] px-4 py-3">Создано</th>
+              <th className="w-[44%] px-4 py-3">{t.transcriptions.resultColumn}</th>
+              <th className="w-[10%] px-4 py-3">{t.transcriptions.language}</th>
+              <th className="w-[14%] px-4 py-3">{t.transcriptions.model}</th>
+              <th className="w-[16%] px-4 py-3">{t.transcriptions.engine}</th>
+              <th className="w-[16%] px-4 py-3">{t.transcriptions.created}</th>
             </tr>
           </thead>
 
@@ -119,7 +121,7 @@ export function TranscriptsTable({
                     "cursor-pointer border-t border-slate-800 transition hover:bg-cyan-400/10",
                     selected ? "bg-cyan-400/10" : "",
                   ].join(" ")}
-                  title="ПКМ — открыть действия"
+                  title={t.transcriptions.contextMenuHint}
                 >
                   <td className="min-w-0 px-4 py-3">
                     <div className="truncate font-semibold text-white" title={name}>
@@ -127,11 +129,11 @@ export function TranscriptsTable({
                     </div>
 
                     <div className="mt-1 truncate text-xs text-slate-500">
-                      ID: {transcript.id}
+                      {t.transcriptions.id}: {transcript.id}
                     </div>
 
                     <div className="mt-1 truncate text-xs text-slate-600">
-                      Медиафайл: {getSourceMediaName(transcript)}
+                      {t.transcriptions.sourceMedia}: {getSourceMediaName(transcript)}
                     </div>
                   </td>
 
@@ -163,19 +165,6 @@ export function TranscriptsTable({
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(event) => event.stopPropagation()}
         >
-          <button
-            type="button"
-            onClick={() => {
-              onSelectTranscript(contextMenu.transcript.id);
-              setContextMenu(null);
-            }}
-            className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-100 transition hover:bg-white/10"
-          >
-            Открыть
-          </button>
-
-          <div className="my-1 h-px bg-slate-800" />
-
           {["txt", "srt", "vtt", "json"].map((format) => (
             <button
               key={format}
@@ -183,18 +172,16 @@ export function TranscriptsTable({
               onClick={() => handleDownload(format)}
               className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-cyan-200 transition hover:bg-cyan-400/10"
             >
-              Скачать {format.toUpperCase()}
+              {t.transcriptions.download} {format.toUpperCase()}
             </button>
           ))}
-
-          <div className="my-1 h-px bg-slate-800" />
 
           <button
             type="button"
             onClick={handleDelete}
-            className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-rose-200 transition hover:bg-rose-500/10"
+            className="mt-1 w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-rose-200 transition hover:bg-rose-500/10"
           >
-            Удалить результат
+            {t.common.delete}
           </button>
         </div>
       ) : null}
