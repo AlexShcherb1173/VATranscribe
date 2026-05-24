@@ -13,6 +13,12 @@ type DownloadJobFormProps = {
   selectedFormat: DownloadFormatInfo | null;
   selectedVideoFormatId: string;
   selectedAudioFormatId: string;
+  initialDownloadMode?: DownloadMode;
+  initialRequestedFileName?: string;
+  onDraftChange?: (draft: {
+    downloadMode?: DownloadMode;
+    requestedFileName?: string;
+  }) => void;
   onSubmit: (payload: {
     downloadMode: DownloadMode;
     requestedFormat: string;
@@ -57,14 +63,17 @@ export function DownloadJobForm({
   selectedFormat,
   selectedVideoFormatId,
   selectedAudioFormatId,
+  initialDownloadMode = "video_mp4_compatible",
+  initialRequestedFileName = "",
+  onDraftChange,
   onSubmit,
 }: DownloadJobFormProps) {
   const { t } = useI18n();
 
-  const [downloadMode, setDownloadMode] =
-    useState<DownloadMode>("video_mp4_compatible");
+  const [downloadMode, setDownloadModeState] =
+    useState<DownloadMode>(initialDownloadMode);
 
-  const [requestedFileName, setRequestedFileName] = useState("");
+  const [requestedFileName, setRequestedFileNameState] = useState(initialRequestedFileName);
 
   const outputExtension = useMemo(
     () => extensionForMode(downloadMode, selectedFormat),
@@ -77,13 +86,34 @@ export function DownloadJobForm({
   }, [requestedFileName, outputExtension]);
 
   useEffect(() => {
+    setDownloadModeState(initialDownloadMode);
+  }, [initialDownloadMode]);
+
+  useEffect(() => {
+    setRequestedFileNameState(initialRequestedFileName);
+  }, [initialRequestedFileName]);
+
+  useEffect(() => {
     if (!title) return;
 
-    setRequestedFileName((prev) => {
+    setRequestedFileNameState((prev) => {
       if (prev.trim()) return prev;
-      return slugifyFileName(title) || "media_file";
+
+      const next = slugifyFileName(title) || "media_file";
+      onDraftChange?.({ requestedFileName: next });
+      return next;
     });
-  }, [title]);
+  }, [onDraftChange, title]);
+
+  function handleDownloadModeChange(value: DownloadMode) {
+    setDownloadModeState(value);
+    onDraftChange?.({ downloadMode: value });
+  }
+
+  function handleRequestedFileNameChange(value: string) {
+    setRequestedFileNameState(value);
+    onDraftChange?.({ requestedFileName: value });
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -147,7 +177,7 @@ export function DownloadJobForm({
           <input
             type="text"
             value={requestedFileName}
-            onChange={(event) => setRequestedFileName(event.target.value)}
+            onChange={(event) => handleRequestedFileNameChange(event.target.value)}
             placeholder="lesson_01"
             className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-500"
           />
@@ -167,7 +197,7 @@ export function DownloadJobForm({
 
           <select
             value={downloadMode}
-            onChange={(event) => setDownloadMode(event.target.value as DownloadMode)}
+            onChange={(event) => handleDownloadModeChange(event.target.value as DownloadMode)}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-500"
           >
             <option value="video_mp4_compatible">

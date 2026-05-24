@@ -1,8 +1,9 @@
-﻿import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RouterProvider } from "react-router-dom";
 
 import { router } from "@/app/router";
+import { DownloadFlowProvider } from "@/features/downloads/model/DownloadFlowProvider";
 import { UploadQueueProvider } from "@/features/uploads/model/UploadQueueProvider";
 import { I18nProvider } from "@/shared/i18n";
 import { ToastProvider } from "@/shared/ui/ToastProvider";
@@ -22,7 +23,9 @@ export function AppProviders() {
       <I18nProvider>
         <ToastProvider>
           <UploadQueueProvider>
-            <RouterProvider router={router} />
+            <DownloadFlowProvider>
+              <RouterProvider router={router} />
+            </DownloadFlowProvider>
           </UploadQueueProvider>
         </ToastProvider>
       </I18nProvider>

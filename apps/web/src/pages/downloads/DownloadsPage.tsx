@@ -1,21 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
 
-import {
-  analyzeDownloadUrl,
-  createDownloadJob,
-} from "@/features/downloads/api/downloads";
-import type {
-  DownloadAnalyzeResponse,
-  DownloadFormatInfo,
-  DownloadMode,
-} from "@/features/downloads/model/types";
+import type { DownloadMode } from "@/features/downloads/model/types";
+import { useDownloadFlow } from "@/features/downloads/model/DownloadFlowProvider";
 import { AnalyzeUrlForm } from "@/features/downloads/ui/AnalyzeUrlForm";
 import { DownloadJobForm } from "@/features/downloads/ui/DownloadJobForm";
 import { FormatsTable } from "@/features/downloads/ui/FormatsTable";
 import { useI18n } from "@/shared/i18n";
-import { extractErrorMessage } from "@/shared/lib/auth-errors";
 import {
   clearPendingStartUrl,
   getPendingStartUrl,
@@ -26,14 +17,32 @@ import { PageHeader } from "@/shared/ui/PageHeader";
 export function DownloadsPage() {
   const navigate = useNavigate();
   const { t } = useI18n();
+  const downloadFlow = useDownloadFlow();
 
-  const [analysis, setAnalysis] = useState<DownloadAnalyzeResponse | null>(null);
-  const [analysisUrl, setAnalysisUrl] = useState("");
-  const [selectedFormatId, setSelectedFormatId] = useState("");
-  const [selectedVideoFormatId, setSelectedVideoFormatId] = useState("");
-  const [selectedAudioFormatId, setSelectedAudioFormatId] = useState("");
-  const [jobResultMessage, setJobResultMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const {
+    activeJobId,
+    analysis,
+    analysisUrl,
+    downloadMode,
+    errorMessage,
+    isAnalyzing,
+    isCreatingJob,
+    jobResultMessage,
+    requestedFileName,
+    selectedAudioFormatId,
+    selectedFormatId,
+    selectedVideoFormatId,
+    analyzeUrl,
+    clearError,
+    clearJobResult,
+    createJob,
+    setAnalysisUrl,
+    setDownloadMode,
+    setRequestedFileName,
+    setSelectedAudioFormatId,
+    setSelectedFormatId,
+    setSelectedVideoFormatId,
+  } = downloadFlow;
 
   useEffect(() => {
     const pendingUrl = getPendingStartUrl();
@@ -42,7 +51,7 @@ export function DownloadsPage() {
       setAnalysisUrl(pendingUrl);
       clearPendingStartUrl();
     }
-  }, []);
+  }, [setAnalysisUrl]);
 
   const selectedFormat = useMemo(() => {
     if (!analysis || !selectedFormatId) {
@@ -52,51 +61,6 @@ export function DownloadsPage() {
     return analysis.formats.find((item) => item.format_id === selectedFormatId) ?? null;
   }, [analysis, selectedFormatId]);
 
-  const analyzeMutation = useMutation({
-    mutationFn: analyzeDownloadUrl,
-
-    onSuccess: (data, variables) => {
-      setAnalysis(data);
-      setAnalysisUrl(variables.url);
-      setErrorMessage(null);
-      setJobResultMessage(null);
-
-      const firstFormat = data.formats.find((item) => item.format_id);
-
-      const bestAudio = data.formats.find(
-        (item: DownloadFormatInfo) => item.audio_only || item.vcodec === "none",
-      );
-
-      const bestVideo = data.formats.find(
-        (item: DownloadFormatInfo) => !item.audio_only && item.vcodec !== "none",
-      );
-
-      setSelectedFormatId(firstFormat?.format_id || "");
-      setSelectedAudioFormatId(bestAudio?.format_id || "");
-      setSelectedVideoFormatId(bestVideo?.format_id || "");
-    },
-
-    onError: (error: any) => {
-      setAnalysis(null);
-      setJobResultMessage(null);
-      setErrorMessage(extractErrorMessage(error, t) || t.downloads.failedAnalyze);
-    },
-  });
-
-  const createJobMutation = useMutation({
-    mutationFn: createDownloadJob,
-
-    onSuccess: () => {
-      setErrorMessage(null);
-      navigate("/app/jobs?source=downloads");
-    },
-
-    onError: (error: any) => {
-      setJobResultMessage(null);
-      setErrorMessage(extractErrorMessage(error, t) || t.downloads.failedCreate);
-    },
-  });
-
   const formatsCount = useMemo(() => analysis?.formats.length ?? 0, [analysis]);
 
   return (
@@ -105,9 +69,16 @@ export function DownloadsPage() {
 
       <div className="grid gap-6">
         <AnalyzeUrlForm
-          isLoading={analyzeMutation.isPending}
+          isLoading={isAnalyzing}
           initialUrl={analysisUrl}
-          onAnalyze={(url) => analyzeMutation.mutate({ url })}
+          onUrlChange={(url) => {
+            setAnalysisUrl(url);
+            if (errorMessage) clearError();
+            if (jobResultMessage) clearJobResult();
+          }}
+          onAnalyze={(url) => {
+            void analyzeUrl(url);
+          }}
         />
 
         {errorMessage ? (
@@ -131,6 +102,16 @@ export function DownloadsPage() {
             <div className="mt-1 text-sm text-emerald-200">
               {jobResultMessage}
             </div>
+
+            {activeJobId ? (
+              <button
+                type="button"
+                onClick={() => navigate(`/app/jobs?jobId=${activeJobId}&source=downloads`)}
+                className="mt-3 rounded-xl border border-emerald-400/30 px-4 py-2 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-400/10"
+              >
+                {t.jobs?.title ?? "Jobs"}
+              </button>
+            ) : null}
           </Card>
         ) : null}
 
@@ -199,12 +180,23 @@ export function DownloadsPage() {
             <DownloadJobForm
               url={analysisUrl}
               title={analysis.title}
-              isSubmitting={createJobMutation.isPending}
+              isSubmitting={isCreatingJob}
               selectedFormat={selectedFormat}
               selectedVideoFormatId={selectedVideoFormatId}
               selectedAudioFormatId={selectedAudioFormatId}
+              initialDownloadMode={downloadMode}
+              initialRequestedFileName={requestedFileName}
+              onDraftChange={(draft) => {
+                if (draft.downloadMode) {
+                  setDownloadMode(draft.downloadMode);
+                }
+
+                if (typeof draft.requestedFileName === "string") {
+                  setRequestedFileName(draft.requestedFileName);
+                }
+              }}
               onSubmit={(payload) => {
-                createJobMutation.mutate({
+                void createJob({
                   url: analysisUrl,
                   download_mode: payload.downloadMode as DownloadMode,
                   requested_format: payload.requestedFormat,
@@ -213,6 +205,10 @@ export function DownloadsPage() {
                   selected_format_id: payload.selectedFormatId,
                   selected_video_format_id: payload.selectedVideoFormatId,
                   selected_audio_format_id: payload.selectedAudioFormatId,
+                }).then((job) => {
+                  if (job) {
+                    navigate(`/app/jobs?jobId=${job.id}&source=downloads`);
+                  }
                 });
               }}
             />
@@ -220,11 +216,11 @@ export function DownloadsPage() {
         ) : (
           <Card className="p-6">
             <div className="text-lg font-medium text-white">
-              {t.downloads.waitingTitle}
+              {isAnalyzing ? t.downloads.analyzing : t.downloads.waitingTitle}
             </div>
 
             <p className="mt-2 max-w-2xl text-sm text-slate-400">
-              {t.downloads.waitingText}
+              {isAnalyzing ? t.downloads.analyzeText : t.downloads.waitingText}
             </p>
           </Card>
         )}

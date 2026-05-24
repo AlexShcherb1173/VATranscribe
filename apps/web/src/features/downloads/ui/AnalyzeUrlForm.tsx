@@ -6,12 +6,14 @@ type AnalyzeUrlFormProps = {
   initialUrl?: string;
   isLoading: boolean;
   onAnalyze: (url: string) => void;
+  onUrlChange?: (url: string) => void;
 };
 
 export function AnalyzeUrlForm({
   initialUrl = "",
   isLoading,
   onAnalyze,
+  onUrlChange,
 }: AnalyzeUrlFormProps) {
   const { t } = useI18n();
   const [url, setUrl] = useState(initialUrl);
@@ -19,6 +21,11 @@ export function AnalyzeUrlForm({
   useEffect(() => {
     setUrl(initialUrl);
   }, [initialUrl]);
+
+  function handleUrlChange(value: string) {
+    setUrl(value);
+    onUrlChange?.(value);
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,7 +58,7 @@ export function AnalyzeUrlForm({
         <input
           type="text"
           value={url}
-          onChange={(event) => setUrl(event.target.value)}
+          onChange={(event) => handleUrlChange(event.target.value)}
           placeholder="https://..."
           className="min-h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-500"
         />
